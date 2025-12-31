@@ -4,25 +4,64 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import TransactionsPage from "@/pages/transactions";
+import { Layout } from "@/components/layout";
+import { AppProvider } from "@/lib/appContext";
 
 function Router() {
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        <Route path="/" component={TransactionsPage} />
+        {/* Placeholders for other routes */}
+        <Route path="/reports">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+             <div className="p-4 rounded-full bg-muted">
+               <span className="text-4xl">📊</span>
+             </div>
+             <div>
+               <h2 className="text-xl font-semibold">Reports Coming Soon</h2>
+               <p className="text-muted-foreground">This module is under development.</p>
+             </div>
+          </div>
+        </Route>
+        <Route path="/notifications">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+             <div className="p-4 rounded-full bg-muted">
+               <span className="text-4xl">🔔</span>
+             </div>
+             <div>
+               <h2 className="text-xl font-semibold">No Notifications</h2>
+               <p className="text-muted-foreground">You are all caught up!</p>
+             </div>
+          </div>
+        </Route>
+         <Route path="/settings">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+             <div className="p-4 rounded-full bg-muted">
+               <span className="text-4xl">⚙️</span>
+             </div>
+             <div>
+               <h2 className="text-xl font-semibold">Settings</h2>
+               <p className="text-muted-foreground">System configuration area.</p>
+             </div>
+          </div>
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AppProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AppProvider>
     </QueryClientProvider>
   );
 }
