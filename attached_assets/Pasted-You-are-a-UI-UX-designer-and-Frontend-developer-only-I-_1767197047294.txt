@@ -1,0 +1,110 @@
+You are a UI/UX designer and Frontend developer only.
+I have a simple accounting application for two partners (P1 and P2).
+The backend (Supabase + CRUD logic) already exists and works well.
+I want to redesign ONLY the frontend UI, replacing Streamlit with a modern web interface.
+Do NOT change backend logic or database structure.
+
+Important context:
+- The same user manages TWO projects.
+- Both projects must live inside the SAME application.
+- Best approach: ONE database with data isolated by project_id (multi-project / multi-tenant).
+- The UI must allow switching between projects, and all data must be filtered by the selected project.
+
+Current tables in Supabase:
+- expenses
+- revenues
+- settlements
+- periods
+- partners
+
+Goal:
+A clean, stable, production-oriented internal accounting UI.
+No over-engineering. Step by step.
+
+Tech preferences (frontend only):
+- React or Next.js
+- TypeScript preferred (JavaScript acceptable)
+- Tailwind CSS
+- Simple component-based design
+- RTL-friendly layout (Arabic-ready)
+
+Main layout:
+- Top bar with:
+  - App name
+  - Project selector (dropdown)
+  - Period selector (dropdown)
+- Sidebar or tabs for navigation:
+  - Transactions
+  - Reports
+  - Notifications (placeholder)
+
+Main page: Transactions
+- Tabs:
+  - Expenses
+  - Revenues
+  - Settlements
+
+For each tab:
+- Table displaying records
+- Clear columns (date, description, amount, partner info)
+- Actions per row:
+  - Edit
+  - Delete
+- Delete must NEVER be direct:
+  - Show confirmation dialog/modal:
+    “Are you sure you want to delete this record?”
+    Buttons: Cancel / Confirm Delete
+
+Forms:
+- Add and Edit must open in modal dialogs
+- Simple, clear labels
+- No advanced validation yet
+
+Expenses & Revenues:
+- Fields:
+  - Date
+  - Description
+  - Amount
+  - Paid by (P1 / P2)
+
+Settlements:
+- Fields:
+  - Date
+  - Description
+  - Amount
+  - From partner (P1 / P2)
+  - To partner (auto-calculated)
+
+UX requirements:
+- Clear success and error messages
+- Loading states when fetching data
+- Minimal, clean dashboard look
+- Focus on usability, not fancy visuals
+
+Multi-project support:
+- Project selector at the top
+- All lists, forms, and actions must work within the selected project context (project_id)
+- Same workflow reused for both projects
+
+Deliverables:
+- Frontend project structure (pages, components, modals)
+- Reusable components:
+  - ProjectSelector
+  - PeriodSelector
+  - DataTable
+  - ConfirmDeleteDialog
+- A working UI (can use mock data if API integration is not required yet)
+- Basic styling with Tailwind
+- Instructions to run the frontend locally
+
+Constraints:
+- No authentication for now
+- No notifications logic yet
+- No performance optimizations
+- No backend changes
+
+Priority:
+1) Transactions page
+2) Confirm delete flow
+3) Project selector
+4) Clean, stable UI
