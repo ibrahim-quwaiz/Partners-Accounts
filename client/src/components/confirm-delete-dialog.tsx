@@ -21,8 +21,8 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Are you sure?",
-  description = "This action cannot be undone. This will permanently delete the record.",
+  title = "هل أنت متأكد؟",
+  description = "لا يمكن التراجع عن هذا الإجراء. سيتم حذف السجل نهائياً.",
 }: ConfirmDeleteDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -31,8 +31,8 @@ export function ConfirmDeleteDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogFooter className="gap-2 sm:gap-0">
+          <AlertDialogCancel>إلغاء</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -40,7 +40,7 @@ export function ConfirmDeleteDialog({
             }}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Confirm Delete
+            تأكيد الحذف
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

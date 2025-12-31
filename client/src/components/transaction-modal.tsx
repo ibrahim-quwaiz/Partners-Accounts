@@ -23,9 +23,9 @@ import { useApp, Transaction } from "@/lib/appContext";
 import { format } from "date-fns";
 
 const transactionSchema = z.object({
-  description: z.string().min(2, "Description is required"),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid date"),
+  description: z.string().min(2, "الوصف مطلوب"),
+  amount: z.coerce.number().min(0.01, "المبلغ يجب أن يكون أكبر من 0"),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), "تاريخ غير صالح"),
   paidBy: z.enum(["P1", "P2"]).optional(),
   fromPartner: z.enum(["P1", "P2"]).optional(),
 });
@@ -104,20 +104,23 @@ export function TransactionModal({
     onOpenChange(false);
   };
 
-  const title = initialData
-    ? `Edit ${type === "settlement" ? "Settlement" : type}`
-    : `Add ${type === "settlement" ? "Settlement" : type}`;
+  const getTitle = () => {
+    if (initialData) {
+      return type === "settlement" ? "تعديل تسوية" : type === "revenue" ? "تعديل إيراد" : "تعديل مصروف";
+    }
+    return type === "settlement" ? "إضافة تسوية" : type === "revenue" ? "إضافة إيراد" : "إضافة مصروف";
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{getTitle()}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="grid gap-2">
-            <Label htmlFor="date">Date</Label>
-            <Input id="date" type="date" {...form.register("date")} />
+            <Label htmlFor="date">التاريخ</Label>
+            <Input id="date" type="date" {...form.register("date")} className="text-start" />
             {form.formState.errors.date && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.date.message}
@@ -126,10 +129,10 @@ export function TransactionModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">الوصف</Label>
             <Input
               id="description"
-              placeholder="e.g. Office Supplies"
+              placeholder="مثال: أدوات مكتبية"
               {...form.register("description")}
             />
             {form.formState.errors.description && (
@@ -140,7 +143,7 @@ export function TransactionModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="amount">Amount</Label>
+            <Label htmlFor="amount">المبلغ</Label>
             <Input
               id="amount"
               type="number"
@@ -157,18 +160,18 @@ export function TransactionModal({
           {(type === "expense" || type === "revenue") && (
             <div className="grid gap-2">
               <Label htmlFor="paidBy">
-                {type === "expense" ? "Paid By" : "Received By"}
+                {type === "expense" ? "مدفوع بواسطة" : "مستلم بواسطة"}
               </Label>
               <Select
                 value={form.watch("paidBy")}
                 onValueChange={(val: any) => form.setValue("paidBy", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-start">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P1">Partner 1</SelectItem>
-                  <SelectItem value="P2">Partner 2</SelectItem>
+                  <SelectItem value="P1">الشريك 1</SelectItem>
+                  <SelectItem value="P2">الشريك 2</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -176,33 +179,33 @@ export function TransactionModal({
 
           {type === "settlement" && (
             <div className="grid gap-2">
-              <Label htmlFor="fromPartner">From Partner</Label>
+              <Label htmlFor="fromPartner">من الشريك</Label>
               <Select
                 value={form.watch("fromPartner")}
                 onValueChange={(val: any) => form.setValue("fromPartner", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-start">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P1">Partner 1</SelectItem>
-                  <SelectItem value="P2">Partner 2</SelectItem>
+                  <SelectItem value="P1">الشريك 1</SelectItem>
+                  <SelectItem value="P2">الشريك 2</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                To Partner:{" "}
+                إلى الشريك:{" "}
                 <span className="font-medium text-foreground">
-                  {form.watch("fromPartner") === "P1" ? "Partner 2" : "Partner 1"}
+                  {form.watch("fromPartner") === "P1" ? "الشريك 2" : "الشريك 1"}
                 </span>
               </p>
             </div>
           )}
 
-          <DialogFooter className="mt-4">
+          <DialogFooter className="mt-4 gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              إلغاء
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit">حفظ</Button>
           </DialogFooter>
         </form>
       </DialogContent>

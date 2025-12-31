@@ -7,7 +7,7 @@ export function ProjectSelector() {
 
   return (
     <div className="flex flex-col gap-1.5 min-w-[200px]">
-      <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Project</Label>
+      <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">المشروع</Label>
       <Select
         value={activeProject.id}
         onValueChange={(val) => {
@@ -15,8 +15,8 @@ export function ProjectSelector() {
           if (proj) setActiveProject(proj);
         }}
       >
-        <SelectTrigger className="w-full bg-background font-medium">
-          <SelectValue placeholder="Select Project" />
+        <SelectTrigger className="w-full bg-background font-medium text-start">
+          <SelectValue placeholder="اختر المشروع" />
         </SelectTrigger>
         <SelectContent>
           {MOCK_PROJECTS.map((proj) => (
@@ -35,7 +35,7 @@ export function PeriodSelector() {
 
   return (
     <div className="flex flex-col gap-1.5 min-w-[180px]">
-      <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Period</Label>
+      <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">الفترة</Label>
       <Select
         value={activePeriod.id}
         onValueChange={(val) => {
@@ -43,8 +43,8 @@ export function PeriodSelector() {
           if (per) setActivePeriod(per);
         }}
       >
-        <SelectTrigger className="w-full bg-background font-medium">
-          <SelectValue placeholder="Select Period" />
+        <SelectTrigger className="w-full bg-background font-medium text-start">
+          <SelectValue placeholder="اختر الفترة" />
         </SelectTrigger>
         <SelectContent>
           {MOCK_PERIODS.map((per) => (

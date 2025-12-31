@@ -46,16 +46,24 @@ export default function TransactionsPage() {
   const revenues = getFilteredTransactions("revenue");
   const settlements = getFilteredTransactions("settlement");
 
+  const getAddButtonText = () => {
+    switch (activeTab) {
+      case "settlement": return "إضافة تسوية";
+      case "revenue": return "إضافة إيراد";
+      default: return "إضافة مصروف";
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">Manage expenses, revenues, and settlements for the selected period.</p>
+          <h1 className="text-2xl font-bold tracking-tight">المعاملات</h1>
+          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات للفترة المحددة.</p>
         </div>
         <Button onClick={handleAdd} className="gap-2 shadow-sm">
           <Plus className="h-4 w-4" />
-          Add {activeTab === "settlement" ? "Settlement" : activeTab === "revenue" ? "Revenue" : "Expense"}
+          {getAddButtonText()}
         </Button>
       </div>
 
@@ -66,9 +74,9 @@ export default function TransactionsPage() {
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="expense">Expenses</TabsTrigger>
-          <TabsTrigger value="revenue">Revenues</TabsTrigger>
-          <TabsTrigger value="settlement">Settlements</TabsTrigger>
+          <TabsTrigger value="expense">المصروفات</TabsTrigger>
+          <TabsTrigger value="revenue">الإيرادات</TabsTrigger>
+          <TabsTrigger value="settlement">التسويات</TabsTrigger>
         </TabsList>
 
         <TabsContent value="expense" className="mt-6">
@@ -110,8 +118,6 @@ export default function TransactionsPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Transaction"
-        description="Are you sure you want to delete this record? This action cannot be undone."
       />
     </div>
   );

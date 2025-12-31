@@ -8,10 +8,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   const navItems = [
-    { label: "Transactions", icon: LayoutDashboard, href: "/" },
-    { label: "Reports", icon: FileText, href: "/reports" },
-    { label: "Notifications", icon: Bell, href: "/notifications" },
-    { label: "Settings", icon: Settings, href: "/settings" },
+    { label: "المعاملات", icon: LayoutDashboard, href: "/" },
+    { label: "التقارير", icon: FileText, href: "/reports" },
+    { label: "الإشعارات", icon: Bell, href: "/notifications" },
+    { label: "الإعدادات", icon: Settings, href: "/settings" },
   ];
 
   return (
@@ -22,15 +22,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
             <Briefcase className="h-5 w-5" />
           </div>
-          <span className="font-bold text-lg tracking-tight">PartnerBooks</span>
+          <span className="font-bold text-lg tracking-tight">دفتر الشركاء</span>
         </div>
 
         <div className="p-4 space-y-6 flex-1">
-           {/* Context Selectors in Sidebar for Mobile, or keep in header? 
-               User asked for "Top bar with App name, Project selector, Period selector".
-               Let's put navigation in sidebar and selectors in Top Bar as requested.
-           */}
-           
            <nav className="space-y-1">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
@@ -54,11 +49,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
              <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
-                <span className="text-xs font-semibold">JD</span>
+                <span className="text-xs font-semibold">م.ع</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-sm font-medium">John Doe</span>
-                <span className="text-xs text-muted-foreground">Admin</span>
+                <span className="text-sm font-medium">محمد علي</span>
+                <span className="text-xs text-muted-foreground">مدير النظام</span>
              </div>
           </div>
         </div>

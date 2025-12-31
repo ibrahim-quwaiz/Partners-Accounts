@@ -33,14 +33,14 @@ export interface Transaction {
 
 // --- Mock Data ---
 export const MOCK_PROJECTS: Project[] = [
-  { id: "proj_01", name: "Alpha Tower Construction" },
-  { id: "proj_02", name: "Beta Market Renovation" },
+  { id: "proj_01", name: "مشروع برج الألفية" },
+  { id: "proj_02", name: "تجديد السوق المركزي" },
 ];
 
 export const MOCK_PERIODS: Period[] = [
-  { id: "per_01", name: "January 2025", startDate: new Date(2025, 0, 1), endDate: new Date(2025, 0, 31) },
-  { id: "per_02", name: "February 2025", startDate: new Date(2025, 1, 1), endDate: new Date(2025, 1, 28) },
-  { id: "per_03", name: "March 2025", startDate: new Date(2025, 2, 1), endDate: new Date(2025, 2, 31) },
+  { id: "per_01", name: "يناير 2025", startDate: new Date(2025, 0, 1), endDate: new Date(2025, 0, 31) },
+  { id: "per_02", name: "فبراير 2025", startDate: new Date(2025, 1, 1), endDate: new Date(2025, 1, 28) },
+  { id: "per_03", name: "مارس 2025", startDate: new Date(2025, 2, 1), endDate: new Date(2025, 2, 31) },
 ];
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
@@ -49,7 +49,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     projectId: "proj_01",
     periodId: "per_01",
     date: new Date(2025, 0, 5),
-    description: "Cement Bags (50x)",
+    description: "أكياس أسمنت (50x)",
     amount: 1200,
     type: "expense",
     paidBy: "P1",
@@ -59,7 +59,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     projectId: "proj_01",
     periodId: "per_01",
     date: new Date(2025, 0, 8),
-    description: "Client Advance Payment",
+    description: "دفعة مقدمة من العميل",
     amount: 5000,
     type: "revenue",
     paidBy: "P2", // Received by P2
@@ -69,7 +69,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     projectId: "proj_01",
     periodId: "per_01",
     date: new Date(2025, 0, 15),
-    description: "Partial Settlement",
+    description: "تسوية جزئية",
     amount: 500,
     type: "settlement",
     fromPartner: "P1",
@@ -80,7 +80,7 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
     projectId: "proj_02",
     periodId: "per_01",
     date: new Date(2025, 0, 10),
-    description: "Paint Supplies",
+    description: "لوازم طلاء",
     amount: 300,
     type: "expense",
     paidBy: "P2",

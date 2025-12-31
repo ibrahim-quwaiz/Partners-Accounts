@@ -20,8 +20,8 @@ function Router() {
                <span className="text-4xl">📊</span>
              </div>
              <div>
-               <h2 className="text-xl font-semibold">Reports Coming Soon</h2>
-               <p className="text-muted-foreground">This module is under development.</p>
+               <h2 className="text-xl font-semibold">التقارير (قريباً)</h2>
+               <p className="text-muted-foreground">هذه الوحدة قيد التطوير.</p>
              </div>
           </div>
         </Route>
@@ -31,8 +31,8 @@ function Router() {
                <span className="text-4xl">🔔</span>
              </div>
              <div>
-               <h2 className="text-xl font-semibold">No Notifications</h2>
-               <p className="text-muted-foreground">You are all caught up!</p>
+               <h2 className="text-xl font-semibold">لا توجد إشعارات</h2>
+               <p className="text-muted-foreground">سيتم إضافة الإشعارات لاحقًا</p>
              </div>
           </div>
         </Route>
@@ -42,8 +42,8 @@ function Router() {
                <span className="text-4xl">⚙️</span>
              </div>
              <div>
-               <h2 className="text-xl font-semibold">Settings</h2>
-               <p className="text-muted-foreground">System configuration area.</p>
+               <h2 className="text-xl font-semibold">الإعدادات</h2>
+               <p className="text-muted-foreground">منطقة تكوين النظام.</p>
              </div>
           </div>
         </Route>
