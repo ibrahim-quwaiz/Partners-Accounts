@@ -31,6 +31,19 @@ export interface Transaction {
   toPartner?: Partner; // Calculated
 }
 
+export interface User {
+  username: string;
+  role: "admin" | "partner";
+}
+
+export interface NotificationLog {
+  id: string;
+  transactionName: string;
+  emailSent: boolean;
+  whatsappSent: boolean;
+  date: Date;
+}
+
 // --- Mock Data ---
 export const MOCK_PROJECTS: Project[] = [
   { id: "proj_01", name: "مشروع برج الألفية" },
@@ -98,6 +111,15 @@ interface AppContextType {
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   getFilteredTransactions: (type?: Transaction["type"]) => Transaction[];
+  
+  // Auth
+  user: User | null;
+  login: (username: string, password: string) => boolean;
+  logout: () => void;
+
+  // Notifications
+  notifications: NotificationLog[];
+  addNotification: (txName: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -106,10 +128,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeProject, setActiveProject] = useState<Project>(MOCK_PROJECTS[0]);
   const [activePeriod, setActivePeriod] = useState<Period>(MOCK_PERIODS[0]);
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const [user, setUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<NotificationLog[]>([]);
+
+  const addNotification = (txName: string) => {
+    const newLog: NotificationLog = {
+      id: `notif_${Date.now()}`,
+      transactionName: txName,
+      emailSent: false,
+      whatsappSent: false,
+      date: new Date(),
+    };
+    setNotifications(prev => [newLog, ...prev]);
+  };
 
   const addTransaction = (tx: Omit<Transaction, "id">) => {
     const newTx = { ...tx, id: `tx_${Date.now()}` };
     setTransactions((prev) => [...prev, newTx]);
+    // Link: Automatically add notification when transaction is added
+    addNotification(tx.description);
   };
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {
@@ -131,6 +168,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const login = (u: string, p: string) => {
+    if ((u === "admin" && p === "admin") || (u === "partner" && p === "partner")) {
+      setUser({ username: u, role: u === "admin" ? "admin" : "partner" });
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -143,6 +192,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateTransaction,
         deleteTransaction,
         getFilteredTransactions,
+        user,
+        login,
+        logout,
+        notifications,
+        addNotification
       }}
     >
       {children}
