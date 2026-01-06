@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { ProjectSelector, PeriodSelector } from "./selectors";
-import { LayoutDashboard, FileText, Settings, Bell, Briefcase } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: "المعاملات", icon: LayoutDashboard, href: "/" },
     { label: "التقارير", icon: FileText, href: "/reports" },
     { label: "الإشعارات", icon: Bell, href: "/notifications" },
+    { label: "الشركاء", icon: Users, href: "/users" },
     { label: "الإعدادات", icon: Settings, href: "/settings" },
   ];
 

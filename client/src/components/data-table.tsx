@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { Transaction } from "@/lib/appContext";
+import { Transaction, useApp } from "@/lib/appContext";
 
 interface DataTableProps {
   data: Transaction[];
@@ -19,6 +19,8 @@ interface DataTableProps {
 }
 
 export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
+  const { getPartnerName } = useApp();
+
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center border rounded-lg bg-card/50 border-dashed">
@@ -57,12 +59,12 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
               <TableCell>
                 {type === "settlement" ? (
                   <div className="flex flex-col text-xs">
-                    <span>من: {row.fromPartner === "P1" ? "الشريك 1" : "الشريك 2"}</span>
-                    <span className="text-muted-foreground">إلى: {row.toPartner === "P1" ? "الشريك 1" : "الشريك 2"}</span>
+                    <span>من: {row.fromPartner ? getPartnerName(row.fromPartner) : "-"}</span>
+                    <span className="text-muted-foreground">إلى: {row.toPartner ? getPartnerName(row.toPartner) : "-"}</span>
                   </div>
                 ) : (
                   <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10">
-                    {row.paidBy === "P1" ? "الشريك 1" : "الشريك 2"}
+                    {row.paidBy ? getPartnerName(row.paidBy) : "-"}
                   </span>
                 )}
               </TableCell>

@@ -45,7 +45,7 @@ export function TransactionModal({
   type,
   initialData,
 }: TransactionModalProps) {
-  const { addTransaction, updateTransaction, activeProject, activePeriod } =
+  const { addTransaction, updateTransaction, activeProject, activePeriod, getPartnerName } =
     useApp();
 
   const form = useForm<TransactionFormValues>({
@@ -170,8 +170,8 @@ export function TransactionModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P1">الشريك 1</SelectItem>
-                  <SelectItem value="P2">الشريك 2</SelectItem>
+                  <SelectItem value="P1">{getPartnerName("P1")}</SelectItem>
+                  <SelectItem value="P2">{getPartnerName("P2")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -188,14 +188,14 @@ export function TransactionModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P1">الشريك 1</SelectItem>
-                  <SelectItem value="P2">الشريك 2</SelectItem>
+                  <SelectItem value="P1">{getPartnerName("P1")}</SelectItem>
+                  <SelectItem value="P2">{getPartnerName("P2")}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 إلى الشريك:{" "}
                 <span className="font-medium text-foreground">
-                  {form.watch("fromPartner") === "P1" ? "الشريك 2" : "الشريك 1"}
+                  {form.watch("fromPartner") === "P1" ? getPartnerName("P2") : getPartnerName("P1")}
                 </span>
               </p>
             </div>

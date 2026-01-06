@@ -44,6 +44,12 @@ export interface NotificationLog {
   date: Date;
 }
 
+export interface PartnerProfile {
+  id: Partner;
+  displayName: string;
+  phone: string;
+}
+
 // --- Mock Data ---
 export const MOCK_PROJECTS: Project[] = [
   { id: "proj_01", name: "مشروع برج الألفية" },
@@ -54,6 +60,11 @@ export const MOCK_PERIODS: Period[] = [
   { id: "per_01", name: "يناير 2025", startDate: new Date(2025, 0, 1), endDate: new Date(2025, 0, 31) },
   { id: "per_02", name: "فبراير 2025", startDate: new Date(2025, 1, 1), endDate: new Date(2025, 1, 28) },
   { id: "per_03", name: "مارس 2025", startDate: new Date(2025, 2, 1), endDate: new Date(2025, 2, 31) },
+];
+
+export const MOCK_PARTNERS: PartnerProfile[] = [
+  { id: "P1", displayName: "الشريك 1", phone: "0500000001" },
+  { id: "P2", displayName: "الشريك 2", phone: "0500000002" },
 ];
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
@@ -120,6 +131,11 @@ interface AppContextType {
   // Notifications
   notifications: NotificationLog[];
   addNotification: (txName: string) => void;
+
+  // Partners
+  partners: PartnerProfile[];
+  updatePartner: (id: Partner, data: Partial<PartnerProfile>) => void;
+  getPartnerName: (id: Partner) => string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -130,6 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [user, setUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<NotificationLog[]>([]);
+  const [partners, setPartners] = useState<PartnerProfile[]>(MOCK_PARTNERS);
 
   const addNotification = (txName: string) => {
     const newLog: NotificationLog = {
@@ -180,6 +197,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updatePartner = (id: Partner, data: Partial<PartnerProfile>) => {
+    setPartners(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+  };
+
+  const getPartnerName = (id: Partner) => {
+    return partners.find(p => p.id === id)?.displayName || id;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -196,7 +221,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         notifications,
-        addNotification
+        addNotification,
+        partners,
+        updatePartner,
+        getPartnerName
       }}
     >
       {children}

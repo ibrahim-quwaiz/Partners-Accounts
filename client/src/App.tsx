@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import TransactionsPage from "@/pages/transactions";
 import NotificationsPage from "@/pages/notifications";
+import UsersPage from "@/pages/users";
 import { Layout } from "@/components/layout";
 import { AppProvider } from "@/lib/appContext";
 import { LoginModal } from "@/components/login-modal";
@@ -16,6 +17,7 @@ function Router() {
       <Switch>
         <Route path="/" component={TransactionsPage} />
         <Route path="/notifications" component={NotificationsPage} />
+        <Route path="/users" component={UsersPage} />
         
         {/* Placeholders for other routes */}
         <Route path="/reports">
