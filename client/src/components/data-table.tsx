@@ -30,33 +30,27 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
   }
 
   return (
-    <div className="rounded-md border bg-card">
+    <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[120px] text-start">التاريخ</TableHead>
-            <TableHead className="text-start">الوصف</TableHead>
-            <TableHead className="text-end">المبلغ</TableHead>
-            <TableHead className="w-[150px] text-start">
+            <TableHead className="w-[120px] text-right">التاريخ</TableHead>
+            <TableHead className="text-right">الوصف</TableHead>
+            <TableHead className="text-right w-[150px]">
               {type === "settlement" ? "من / إلى" : "بواسطة"}
             </TableHead>
-            <TableHead className="w-[100px] text-end">إجراءات</TableHead>
+            <TableHead className="text-left w-[120px]">المبلغ</TableHead>
+            <TableHead className="w-[100px] text-left">إجراءات</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.map((row) => (
             <TableRow key={row.id}>
-              <TableCell className="font-medium text-muted-foreground">
+              <TableCell className="font-medium text-muted-foreground text-right">
                 {format(row.date, "yyyy/MM/dd")}
               </TableCell>
-              <TableCell>{row.description}</TableCell>
-              <TableCell className="text-end font-medium">
-                {new Intl.NumberFormat("en-US", {
-                  style: "decimal",
-                  minimumFractionDigits: 2,
-                }).format(row.amount)}
-              </TableCell>
-              <TableCell>
+              <TableCell className="text-right">{row.description}</TableCell>
+              <TableCell className="text-right">
                 {type === "settlement" ? (
                   <div className="flex flex-col text-xs">
                     <span>من: {row.fromPartner ? getPartnerName(row.fromPartner) : "-"}</span>
@@ -68,8 +62,14 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
                   </span>
                 )}
               </TableCell>
-              <TableCell className="text-end">
-                <div className="flex justify-end gap-2">
+              <TableCell className="text-left font-medium">
+                {new Intl.NumberFormat("en-US", {
+                  style: "decimal",
+                  minimumFractionDigits: 2,
+                }).format(row.amount)}
+              </TableCell>
+              <TableCell className="text-left">
+                <div className="flex justify-start gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
