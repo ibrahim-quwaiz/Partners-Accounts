@@ -90,20 +90,23 @@ export default function TransactionsPage() {
         onValueChange={(val) => setActiveTab(val as any)} 
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="expense" className="gap-2">
-            <TrendingDown className="h-4 w-4 hidden sm:block" />
-            مصروفات
-          </TabsTrigger>
-          <TabsTrigger value="revenue" className="gap-2">
-            <TrendingUp className="h-4 w-4 hidden sm:block" />
-            إيرادات
-          </TabsTrigger>
-          <TabsTrigger value="settlement" className="gap-2">
-            <ArrowLeftRight className="h-4 w-4 hidden sm:block" />
-            تسويات
-          </TabsTrigger>
-        </TabsList>
+        {/* RTL tabs container - order in JSX: مصروفات, إيرادات, تسويات */}
+        <div dir="rtl">
+          <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+            <TabsTrigger value="expense" className="gap-2">
+              <TrendingDown className="h-4 w-4 hidden sm:block" />
+              مصروفات
+            </TabsTrigger>
+            <TabsTrigger value="revenue" className="gap-2">
+              <TrendingUp className="h-4 w-4 hidden sm:block" />
+              إيرادات
+            </TabsTrigger>
+            <TabsTrigger value="settlement" className="gap-2">
+              <ArrowLeftRight className="h-4 w-4 hidden sm:block" />
+              تسويات
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-4 mt-6">
