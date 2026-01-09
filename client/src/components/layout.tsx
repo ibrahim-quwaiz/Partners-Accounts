@@ -1,5 +1,4 @@
 import { Link, useLocation } from "wouter";
-import { PeriodSelector } from "./selectors";
 import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users, CalendarDays, LogOut, History, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -98,12 +97,8 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Top Header - Period selector only, no project dropdown */}
-        <header className="h-16 border-b bg-background px-6 flex items-center justify-between sticky top-0 z-10">
-           <div className="flex items-center gap-4">
-              <PeriodSelector />
-           </div>
-           
+        {/* Top Header */}
+        <header className="h-16 border-b bg-background px-6 flex items-center justify-end sticky top-0 z-10">
            <div className="flex items-center gap-3">
              {/* Project name badge in header */}
              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
