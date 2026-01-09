@@ -10,6 +10,7 @@ import NotificationsPage from "@/pages/notifications";
 import UsersPage from "@/pages/users";
 import PeriodsPage from "@/pages/periods";
 import ReportsPage from "@/pages/reports";
+import EventLogPage from "@/pages/event-log";
 import ProjectSelectPage from "@/pages/project-select";
 import { Layout } from "@/components/layout";
 import { AppProvider, useApp, MOCK_PROJECTS } from "@/lib/appContext";
@@ -39,14 +40,19 @@ function AppContent() {
     );
   }
 
+  const handleChangeProject = () => {
+    setProjectSelected(false);
+  };
+
   // Main app with layout
   return (
-    <Layout>
+    <Layout onChangeProject={handleChangeProject}>
       <Switch>
         <Route path="/" component={TransactionsPage} />
         <Route path="/periods" component={PeriodsPage} />
         <Route path="/reports" component={ReportsPage} />
         <Route path="/notifications" component={NotificationsPage} />
+        <Route path="/event-log" component={EventLogPage} />
         <Route path="/users" component={UsersPage} />
         
         <Route path="/settings">

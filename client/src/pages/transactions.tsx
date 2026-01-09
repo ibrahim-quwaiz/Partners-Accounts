@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, Hash, Coins } from "lucide-react";
 import { useApp, Transaction } from "@/lib/appContext";
 import { DataTable } from "@/components/data-table";
 import { TransactionModal } from "@/components/transaction-modal";
@@ -52,7 +53,23 @@ export default function TransactionsPage() {
       case "revenue": return "إضافة إيراد";
       default: return "إضافة مصروف";
     }
-  }
+  };
+
+  const getCurrentData = () => {
+    switch (activeTab) {
+      case "revenue": return revenues;
+      case "settlement": return settlements;
+      default: return expenses;
+    }
+  };
+
+  const getSummary = (data: Transaction[]) => ({
+    count: data.length,
+    total: data.reduce((sum, tx) => sum + tx.amount, 0),
+  });
+
+  const currentData = getCurrentData();
+  const summary = getSummary(currentData);
 
   return (
     <div className="space-y-6">
@@ -74,12 +91,55 @@ export default function TransactionsPage() {
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="expense">المصروفات</TabsTrigger>
-          <TabsTrigger value="revenue">الإيرادات</TabsTrigger>
-          <TabsTrigger value="settlement">التسويات</TabsTrigger>
+          <TabsTrigger value="expense" className="gap-2">
+            <TrendingDown className="h-4 w-4 hidden sm:block" />
+            مصروفات
+          </TabsTrigger>
+          <TabsTrigger value="revenue" className="gap-2">
+            <TrendingUp className="h-4 w-4 hidden sm:block" />
+            إيرادات
+          </TabsTrigger>
+          <TabsTrigger value="settlement" className="gap-2">
+            <ArrowLeftRight className="h-4 w-4 hidden sm:block" />
+            تسويات
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="expense" className="mt-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                <Hash className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">عدد العمليات</p>
+                <p className="text-xl font-bold">{summary.count}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                activeTab === "revenue" ? "bg-green-500/10" : activeTab === "expense" ? "bg-red-500/10" : "bg-blue-500/10"
+              }`}>
+                <Coins className={`h-5 w-5 ${
+                  activeTab === "revenue" ? "text-green-600" : activeTab === "expense" ? "text-red-600" : "text-blue-600"
+                }`} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">الإجمالي</p>
+                <p className={`text-xl font-bold ${
+                  activeTab === "revenue" ? "text-green-600" : activeTab === "expense" ? "text-red-600" : "text-foreground"
+                }`}>
+                  {summary.total.toLocaleString()} ر.س
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <TabsContent value="expense" className="mt-4">
           <DataTable 
             data={expenses} 
             type="expense" 
@@ -88,7 +148,7 @@ export default function TransactionsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="revenue" className="mt-6">
+        <TabsContent value="revenue" className="mt-4">
           <DataTable 
             data={revenues} 
             type="revenue" 
@@ -97,7 +157,7 @@ export default function TransactionsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="settlement" className="mt-6">
+        <TabsContent value="settlement" className="mt-4">
           <DataTable 
             data={settlements} 
             type="settlement" 

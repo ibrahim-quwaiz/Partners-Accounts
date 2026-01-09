@@ -1,11 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { ProjectSelector, PeriodSelector } from "./selectors";
-import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users, CalendarDays, LogOut } from "lucide-react";
+import { PeriodSelector } from "./selectors";
+import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users, CalendarDays, LogOut, History, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/appContext";
 
-export function Layout({ children }: { children: React.ReactNode }) {
+interface LayoutProps {
+  children: React.ReactNode;
+  onChangeProject?: () => void;
+}
+
+export function Layout({ children, onChangeProject }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout, activeProject } = useApp();
 
@@ -14,8 +19,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: "الفترات", icon: CalendarDays, href: "/periods" },
     { label: "التقارير", icon: FileText, href: "/reports" },
     { label: "الإشعارات", icon: Bell, href: "/notifications" },
+    { label: "سجل الأحداث", icon: History, href: "/event-log" },
     { label: "المستخدمين", icon: Users, href: "/users" },
-    { label: "الإعدادات", icon: Settings, href: "/settings" },
   ];
 
   return (
@@ -29,11 +34,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-lg tracking-tight">دفتر الشركاء</span>
         </div>
 
-        <div className="p-4 space-y-6 flex-1">
-           {/* Current Project Badge */}
+        <div className="p-4 space-y-4 flex-1">
+           {/* Current Project Badge - Display only, no dropdown */}
            <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
              <p className="text-xs text-muted-foreground mb-1">المشروع الحالي</p>
              <p className="font-medium text-sm truncate">{activeProject.name}</p>
+             {onChangeProject && (
+               <Button 
+                 variant="ghost" 
+                 size="sm" 
+                 className="w-full mt-2 h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                 onClick={onChangeProject}
+               >
+                 <ArrowLeftRight className="h-3.5 w-3.5" />
+                 تغيير المشروع
+               </Button>
+             )}
            </div>
 
            <nav className="space-y-1">
@@ -82,16 +98,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        <header className="h-20 border-b bg-background px-6 flex items-center justify-between sticky top-0 z-10">
-           <div className="flex items-center gap-6">
-              <ProjectSelector />
-              <div className="h-8 w-px bg-border hidden sm:block"></div>
+        {/* Top Header - Period selector only, no project dropdown */}
+        <header className="h-16 border-b bg-background px-6 flex items-center justify-between sticky top-0 z-10">
+           <div className="flex items-center gap-4">
               <PeriodSelector />
            </div>
            
            <div className="flex items-center gap-3">
-             {/* Right side header actions if any */}
+             {/* Project name badge in header */}
+             <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+               <Briefcase className="h-4 w-4" />
+               <span>{activeProject.name}</span>
+             </div>
            </div>
         </header>
 
