@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -6,29 +7,51 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, MessageCircle, Send, Clock, CheckCircle, XCircle } from "lucide-react";
-import { useApp, NotificationLog } from "@/lib/appContext";
+import { useApp, NotificationLog, MOCK_PERIODS } from "@/lib/appContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { useState } from "react";
 
 type NotifStatus = "pending" | "sent" | "failed";
 
 interface ExtendedNotif extends NotificationLog {
-  status: NotifStatus;
+  periodId: string;
+  periodName: string;
 }
 
 export default function NotificationsPage() {
   const { notifications } = useApp();
   const { toast } = useToast();
   
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [notifStatuses, setNotifStatuses] = useState<Record<string, NotifStatus>>({});
+
+  const isAllPeriods = selectedPeriod === "all";
+
+  // Extend notifications with period info (mock)
+  const extendedNotifications: ExtendedNotif[] = notifications.map((n, i) => ({
+    ...n,
+    periodId: MOCK_PERIODS[i % MOCK_PERIODS.length].id,
+    periodName: MOCK_PERIODS[i % MOCK_PERIODS.length].name,
+  }));
+
+  // Filter by period
+  const filteredNotifications = isAllPeriods 
+    ? extendedNotifications 
+    : extendedNotifications.filter(n => n.periodId === selectedPeriod);
 
   const getStatus = (id: string): NotifStatus => notifStatuses[id] || "pending";
 
-  const handleSend = (notif: NotificationLog) => {
+  const handleSend = (notif: ExtendedNotif) => {
     // Simulate sending - randomly succeed or fail for demo
     const success = Math.random() > 0.3;
     setNotifStatuses(prev => ({
@@ -73,31 +96,51 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">سجل الإشعارات</h1>
-        <p className="text-muted-foreground">تتبع المعاملات وحالة الإشعارات المرسلة</p>
+      {/* Header with period filter */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">سجل الإشعارات</h1>
+          <p className="text-muted-foreground">تتبع المعاملات وحالة الإشعارات المرسلة</p>
+        </div>
+
+        {/* Period Dropdown - Single Source of Truth */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">الفترة:</span>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[180px] bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الفترات</SelectItem>
+              {MOCK_PERIODS.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-start w-[180px]">التاريخ</TableHead>
-              <TableHead className="text-start">اسم المعاملة</TableHead>
+              <TableHead className="text-right w-[180px]">التاريخ</TableHead>
+              <TableHead className="text-right">اسم المعاملة</TableHead>
+              {isAllPeriods && <TableHead className="text-right w-[120px]">الفترة</TableHead>}
               <TableHead className="text-center w-[120px]">القنوات</TableHead>
               <TableHead className="text-center w-[130px]">الحالة</TableHead>
-              <TableHead className="text-end w-[130px]">إجراء</TableHead>
+              <TableHead className="text-left w-[130px]">إجراء</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {notifications.length === 0 ? (
+            {filteredNotifications.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  لا توجد إشعارات حتى الآن
+                <TableCell colSpan={isAllPeriods ? 6 : 5} className="h-24 text-center text-muted-foreground">
+                  لا توجد إشعارات لهذه الفترة
                 </TableCell>
               </TableRow>
             ) : (
-              notifications.map((row) => {
+              filteredNotifications.map((row) => {
                 const status = getStatus(row.id);
                 return (
                   <TableRow key={row.id}>
@@ -105,6 +148,9 @@ export default function NotificationsPage() {
                       {format(row.date, "yyyy/MM/dd hh:mm a")}
                     </TableCell>
                     <TableCell>{row.transactionName}</TableCell>
+                    {isAllPeriods && (
+                      <TableCell className="text-muted-foreground">{row.periodName}</TableCell>
+                    )}
                     <TableCell>
                       <div className="flex justify-center gap-3">
                         <Mail className={`h-5 w-5 ${status === "sent" ? "text-green-500" : "text-muted-foreground/40"}`} />
@@ -114,7 +160,7 @@ export default function NotificationsPage() {
                     <TableCell className="text-center">
                       {renderStatusBadge(status)}
                     </TableCell>
-                    <TableCell className="text-end">
+                    <TableCell className="text-left">
                       <Button 
                         size="sm" 
                         variant={status === "pending" ? "default" : "outline"}

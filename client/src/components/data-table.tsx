@@ -9,17 +9,30 @@ import {
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { Transaction, useApp } from "@/lib/appContext";
+import { Transaction, useApp, MOCK_PERIODS } from "@/lib/appContext";
 
 interface DataTableProps {
   data: Transaction[];
   onEdit: (tx: Transaction) => void;
   onDelete: (tx: Transaction) => void;
   type: "expense" | "revenue" | "settlement";
+  showPeriodColumn?: boolean;
+  disableActions?: boolean;
 }
 
-export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
+export function DataTable({ 
+  data, 
+  onEdit, 
+  onDelete, 
+  type, 
+  showPeriodColumn = false,
+  disableActions = false 
+}: DataTableProps) {
   const { getPartnerName } = useApp();
+
+  const getPeriodName = (periodId: string) => {
+    return MOCK_PERIODS.find(p => p.id === periodId)?.name || periodId;
+  };
 
   if (data.length === 0) {
     return (
@@ -39,6 +52,7 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
             <TableHead className="text-right w-[150px]">
               {type === "settlement" ? "من / إلى" : "بواسطة"}
             </TableHead>
+            {showPeriodColumn && <TableHead className="text-right w-[120px]">الفترة</TableHead>}
             <TableHead className="text-left w-[120px]">المبلغ</TableHead>
             <TableHead className="w-[100px] text-left">إجراءات</TableHead>
           </TableRow>
@@ -62,6 +76,11 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
                   </span>
                 )}
               </TableCell>
+              {showPeriodColumn && (
+                <TableCell className="text-right text-muted-foreground">
+                  {getPeriodName(row.periodId)}
+                </TableCell>
+              )}
               <TableCell className="text-left font-medium">
                 {new Intl.NumberFormat("en-US", {
                   style: "decimal",
@@ -73,8 +92,9 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
                     onClick={() => onEdit(row)}
+                    disabled={disableActions}
                   >
                     <Edit2 className="h-4 w-4" />
                     <span className="sr-only">تعديل</span>
@@ -82,8 +102,9 @@ export function DataTable({ data, onEdit, onDelete, type }: DataTableProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive disabled:opacity-30"
                     onClick={() => onDelete(row)}
+                    disabled={disableActions}
                   >
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">حذف</span>

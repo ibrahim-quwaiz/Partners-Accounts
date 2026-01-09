@@ -2,15 +2,24 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, Hash, Coins } from "lucide-react";
-import { useApp, Transaction } from "@/lib/appContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, Hash, Coins, Info } from "lucide-react";
+import { useApp, Transaction, MOCK_PERIODS } from "@/lib/appContext";
 import { DataTable } from "@/components/data-table";
 import { TransactionModal } from "@/components/transaction-modal";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 
 export default function TransactionsPage() {
-  const { getFilteredTransactions, deleteTransaction } = useApp();
+  const { getFilteredTransactions, deleteTransaction, activePeriod } = useApp();
   const [activeTab, setActiveTab] = useState<"expense" | "revenue" | "settlement">("expense");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(activePeriod.id);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,17 +29,22 @@ export default function TransactionsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
+  const isAllPeriods = selectedPeriod === "all";
+
   const handleAdd = () => {
+    if (isAllPeriods) return;
     setEditingTx(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (tx: Transaction) => {
+    if (isAllPeriods) return;
     setEditingTx(tx);
     setIsModalOpen(true);
   };
 
   const handleDeleteClick = (tx: Transaction) => {
+    if (isAllPeriods) return;
     setTxToDelete(tx);
     setIsDeleteDialogOpen(true);
   };
@@ -43,9 +57,15 @@ export default function TransactionsPage() {
     }
   };
 
-  const expenses = getFilteredTransactions("expense");
-  const revenues = getFilteredTransactions("revenue");
-  const settlements = getFilteredTransactions("settlement");
+  // Filter transactions by selected period
+  const filterByPeriod = (transactions: Transaction[]) => {
+    if (isAllPeriods) return transactions;
+    return transactions.filter(tx => tx.periodId === selectedPeriod);
+  };
+
+  const expenses = filterByPeriod(getFilteredTransactions("expense"));
+  const revenues = filterByPeriod(getFilteredTransactions("revenue"));
+  const settlements = filterByPeriod(getFilteredTransactions("settlement"));
 
   const getAddButtonText = () => {
     switch (activeTab) {
@@ -73,16 +93,50 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header with period filter */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">المعاملات</h1>
-          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات للفترة المحددة.</p>
+          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات</p>
         </div>
-        <Button onClick={handleAdd} className="gap-2 shadow-sm">
-          <Plus className="h-4 w-4" />
-          {getAddButtonText()}
-        </Button>
+        
+        <div className="flex items-center gap-3">
+          {/* Period Dropdown - Single Source of Truth */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">الفترة:</span>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[180px] bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الفترات</SelectItem>
+                {MOCK_PERIODS.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button 
+            onClick={handleAdd} 
+            className="gap-2 shadow-sm"
+            disabled={isAllPeriods}
+          >
+            <Plus className="h-4 w-4" />
+            {getAddButtonText()}
+          </Button>
+        </div>
       </div>
+
+      {/* Alert when viewing all periods */}
+      {isAllPeriods && (
+        <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-700">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            أنت على <strong>(كل الفترات)</strong>. اختر فترة محددة لإضافة أو تعديل المعاملات.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs 
         defaultValue="expense" 
@@ -90,7 +144,7 @@ export default function TransactionsPage() {
         onValueChange={(val) => setActiveTab(val as any)} 
         className="w-full"
       >
-        {/* RTL tabs container - order in JSX: مصروفات, إيرادات, تسويات */}
+        {/* RTL tabs container */}
         <div dir="rtl">
           <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
             <TabsTrigger value="expense" className="gap-2">
@@ -147,7 +201,9 @@ export default function TransactionsPage() {
             data={expenses} 
             type="expense" 
             onEdit={handleEdit} 
-            onDelete={handleDeleteClick} 
+            onDelete={handleDeleteClick}
+            showPeriodColumn={isAllPeriods}
+            disableActions={isAllPeriods}
           />
         </TabsContent>
 
@@ -156,7 +212,9 @@ export default function TransactionsPage() {
             data={revenues} 
             type="revenue" 
             onEdit={handleEdit} 
-            onDelete={handleDeleteClick} 
+            onDelete={handleDeleteClick}
+            showPeriodColumn={isAllPeriods}
+            disableActions={isAllPeriods}
           />
         </TabsContent>
 
@@ -165,7 +223,9 @@ export default function TransactionsPage() {
             data={settlements} 
             type="settlement" 
             onEdit={handleEdit} 
-            onDelete={handleDeleteClick} 
+            onDelete={handleDeleteClick}
+            showPeriodColumn={isAllPeriods}
+            disableActions={isAllPeriods}
           />
         </TabsContent>
       </Tabs>
