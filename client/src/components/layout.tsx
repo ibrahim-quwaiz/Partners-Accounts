@@ -1,17 +1,20 @@
 import { Link, useLocation } from "wouter";
 import { ProjectSelector, PeriodSelector } from "./selectors";
-import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, Bell, Briefcase, Users, CalendarDays, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/appContext";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { user, logout, activeProject } = useApp();
 
   const navItems = [
     { label: "المعاملات", icon: LayoutDashboard, href: "/" },
+    { label: "الفترات", icon: CalendarDays, href: "/periods" },
     { label: "التقارير", icon: FileText, href: "/reports" },
     { label: "الإشعارات", icon: Bell, href: "/notifications" },
-    { label: "الشركاء", icon: Users, href: "/users" },
+    { label: "المستخدمين", icon: Users, href: "/users" },
     { label: "الإعدادات", icon: Settings, href: "/settings" },
   ];
 
@@ -27,6 +30,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="p-4 space-y-6 flex-1">
+           {/* Current Project Badge */}
+           <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
+             <p className="text-xs text-muted-foreground mb-1">المشروع الحالي</p>
+             <p className="font-medium text-sm truncate">{activeProject.name}</p>
+           </div>
+
            <nav className="space-y-1">
             {navItems.map((item) => (
               <Link key={item.href} href={item.href}>
@@ -47,16 +56,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
            </nav>
         </div>
         
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
           <div className="flex items-center gap-3">
-             <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
-                <span className="text-xs font-semibold">م.ع</span>
+             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
+                <span className="text-xs font-semibold">{user?.username?.charAt(0).toUpperCase() || "؟"}</span>
              </div>
-             <div className="flex flex-col">
-                <span className="text-sm font-medium">محمد علي</span>
-                <span className="text-xs text-muted-foreground">مدير النظام</span>
+             <div className="flex flex-col flex-1 min-w-0">
+                <span className="text-sm font-medium truncate">{user?.username || "زائر"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {user?.role === "admin" ? "مدير النظام" : "مستخدم"}
+                </span>
              </div>
           </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4" />
+            تسجيل الخروج
+          </Button>
         </div>
       </aside>
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -7,38 +8,55 @@ import NotFound from "@/pages/not-found";
 import TransactionsPage from "@/pages/transactions";
 import NotificationsPage from "@/pages/notifications";
 import UsersPage from "@/pages/users";
+import PeriodsPage from "@/pages/periods";
+import ReportsPage from "@/pages/reports";
+import ProjectSelectPage from "@/pages/project-select";
 import { Layout } from "@/components/layout";
-import { AppProvider } from "@/lib/appContext";
+import { AppProvider, useApp, MOCK_PROJECTS } from "@/lib/appContext";
 import { LoginModal } from "@/components/login-modal";
 
-function Router() {
+function AppContent() {
+  const { user, setActiveProject } = useApp();
+  const [projectSelected, setProjectSelected] = useState(false);
+
+  // Show login first
+  if (!user) {
+    return <LoginModal />;
+  }
+
+  // Show project selection after login
+  if (!projectSelected) {
+    return (
+      <ProjectSelectPage 
+        onSelect={(projectId) => {
+          const project = MOCK_PROJECTS.find(p => p.id === projectId);
+          if (project) {
+            setActiveProject(project);
+            setProjectSelected(true);
+          }
+        }} 
+      />
+    );
+  }
+
+  // Main app with layout
   return (
     <Layout>
       <Switch>
         <Route path="/" component={TransactionsPage} />
+        <Route path="/periods" component={PeriodsPage} />
+        <Route path="/reports" component={ReportsPage} />
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/users" component={UsersPage} />
         
-        {/* Placeholders for other routes */}
-        <Route path="/reports">
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-             <div className="p-4 rounded-full bg-muted">
-               <span className="text-4xl">📊</span>
-             </div>
-             <div>
-               <h2 className="text-xl font-semibold">التقارير (قريباً)</h2>
-               <p className="text-muted-foreground">هذه الوحدة قيد التطوير.</p>
-             </div>
-          </div>
-        </Route>
-         <Route path="/settings">
+        <Route path="/settings">
           <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
              <div className="p-4 rounded-full bg-muted">
                <span className="text-4xl">⚙️</span>
              </div>
              <div>
                <h2 className="text-xl font-semibold">الإعدادات</h2>
-               <p className="text-muted-foreground">منطقة تكوين النظام.</p>
+               <p className="text-muted-foreground">منطقة تكوين النظام (قريباً)</p>
              </div>
           </div>
         </Route>
@@ -54,8 +72,7 @@ function App() {
       <AppProvider>
         <TooltipProvider>
           <Toaster />
-          <LoginModal />
-          <Router />
+          <AppContent />
         </TooltipProvider>
       </AppProvider>
     </QueryClientProvider>
