@@ -80,6 +80,8 @@ export function TransactionModal({
   }, [initialData, open, form]);
 
   const onSubmit = (data: TransactionFormValues) => {
+    if (!activeProject || !activePeriod) return;
+    
     const txData: any = {
       projectId: activeProject.id,
       periodId: activePeriod.id,

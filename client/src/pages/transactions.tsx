@@ -19,7 +19,7 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 export default function TransactionsPage() {
   const { getFilteredTransactions, deleteTransaction, activePeriod } = useApp();
   const [activeTab, setActiveTab] = useState<"expense" | "revenue" | "settlement">("expense");
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(activePeriod.id);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(activePeriod?.id || "all");
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);

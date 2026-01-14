@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 export function PeriodSelector() {
   const { activePeriod, setActivePeriod } = useApp();
 
+  if (!activePeriod) return null;
+
   return (
     <div className="flex flex-col gap-1.5 min-w-[180px]">
       <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">الفترة</Label>
