@@ -63,6 +63,16 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/projects/:projectId/periods/reset", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const period = await storage.resetPeriodsForProject(projectId);
+      res.status(201).json(period);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في تهيئة الفترة الافتتاحية" });
+    }
+  });
+
   app.post("/api/projects/:projectId/periods/open", async (req, res) => {
     try {
       const { projectId } = req.params;

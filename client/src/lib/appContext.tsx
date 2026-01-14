@@ -267,27 +267,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [periods, activePeriod]);
 
-  // Update MOCK exports for backward compatibility
-  useEffect(() => {
-    if (projects.length > 0) {
-      MOCK_PROJECTS.length = 0;
-      MOCK_PROJECTS.push(...projects);
-    }
-  }, [projects]);
-
-  useEffect(() => {
-    if (periods.length > 0) {
-      MOCK_PERIODS.length = 0;
-      MOCK_PERIODS.push(...periods);
-    }
-  }, [periods]);
-
-  useEffect(() => {
-    if (partners.length > 0) {
-      MOCK_PARTNERS.length = 0;
-      MOCK_PARTNERS.push(...partners);
-    }
-  }, [partners]);
 
   // =====================================================
   // HANDLERS

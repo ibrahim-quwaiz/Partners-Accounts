@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -9,78 +9,30 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Unlock, Plus, Loader2, AlertCircle } from "lucide-react";
+import { Lock, Unlock, RotateCcw, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/appContext";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-interface Period {
-  id: string;
-  projectId: string;
-  name: string;
-  startDate: string;
-  endDate: string | null;
-  status: "ACTIVE" | "CLOSED";
-  p1BalanceStart: string;
-  p2BalanceStart: string;
-  p1BalanceEnd: string | null;
-  p2BalanceEnd: string | null;
-  openedAt: string;
-  closedAt: string | null;
-}
-
 export default function PeriodsPage() {
-  const { activeProject } = useApp();
+  const { activeProject, periods, isLoadingPeriods: isLoading } = useApp();
   const queryClient = useQueryClient();
 
-  const { data: periods = [], isLoading } = useQuery<Period[]>({
-    queryKey: ["periods", activeProject?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${activeProject?.id}/periods`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("فشل في جلب الفترات");
-      return res.json();
-    },
-    enabled: !!activeProject?.id,
-  });
-
-  const openPeriodMutation = useMutation({
+  const resetMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/projects/${activeProject?.id}/periods/open`, {
+      const res = await fetch(`/api/projects/${activeProject?.id}/periods/reset`, {
         method: "POST",
         credentials: "include",
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "فشل في فتح فترة جديدة");
+        throw new Error(data.error || "فشل في تهيئة الفترة الافتتاحية");
       }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["periods", activeProject?.id] });
-      toast.success("تم فتح فترة جديدة بنجاح");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const closePeriodMutation = useMutation({
-    mutationFn: async (periodId: string) => {
-      const res = await fetch(`/api/periods/${periodId}/close`, {
-        method: "PATCH",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "فشل في إغلاق الفترة");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["periods", activeProject?.id] });
-      toast.success("تم إغلاق الفترة بنجاح");
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", activeProject?.id, "periods"] });
+      toast.success("تم تهيئة الفترة الافتتاحية بنجاح");
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -96,8 +48,6 @@ export default function PeriodsPage() {
     }
   };
 
-  const hasOpenPeriod = periods.some(p => p.status === "ACTIVE");
-
   if (!activeProject) {
     return (
       <div className="flex items-center justify-center h-32 text-muted-foreground">
@@ -111,28 +61,22 @@ export default function PeriodsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">الفترات المحاسبية</h1>
-          <p className="text-muted-foreground">إدارة الفترات وحالتها (مفتوحة / مغلقة)</p>
+          <p className="text-muted-foreground">إدارة الفترات وحالتها</p>
         </div>
         <Button 
           className="gap-2" 
-          onClick={() => openPeriodMutation.mutate()}
-          disabled={openPeriodMutation.isPending || hasOpenPeriod}
+          onClick={() => resetMutation.mutate()}
+          disabled={resetMutation.isPending}
+          data-testid="btn-reset-period"
         >
-          {openPeriodMutation.isPending ? (
+          {resetMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Plus className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" />
           )}
-          فتح فترة جديدة
+          تهيئة الفترة الافتتاحية
         </Button>
       </div>
-
-      {hasOpenPeriod && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span className="text-sm">يوجد فترة مفتوحة. أغلقها قبل فتح فترة جديدة.</span>
-        </div>
-      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-32">
@@ -147,14 +91,13 @@ export default function PeriodsPage() {
                 <TableHead className="text-right">تاريخ البداية</TableHead>
                 <TableHead className="text-right">تاريخ النهاية</TableHead>
                 <TableHead className="text-center w-[120px]">الحالة</TableHead>
-                <TableHead className="text-end w-[150px]">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {periods.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    لا توجد فترات. اضغط "فتح فترة جديدة" للبدء.
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    لا توجد فترات. اضغط "تهيئة الفترة الافتتاحية" للبدء.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -178,25 +121,6 @@ export default function PeriodsPage() {
                           <Lock className="h-3 w-3 me-1" />
                           مغلقة
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-end">
-                      {period.status === "ACTIVE" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => closePeriodMutation.mutate(period.id)}
-                          disabled={closePeriodMutation.isPending}
-                          className="gap-2"
-                          data-testid={`close-period-${period.id}`}
-                        >
-                          {closePeriodMutation.isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Lock className="h-3.5 w-3.5" />
-                          )}
-                          إغلاق الفترة
-                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

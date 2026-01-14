@@ -40,6 +40,7 @@ export interface IStorage {
   getLastClosedPeriod(projectId: string): Promise<Period | undefined>;
   getOpenPeriodForProject(projectId: string): Promise<Period | undefined>;
   closePeriodWithBalances(id: string): Promise<Period>;
+  resetPeriodsForProject(projectId: string): Promise<Period>;
   
   // Users
   getUserProfile(id: string): Promise<UserProfile | undefined>;
@@ -216,6 +217,39 @@ export class DatabaseStorage implements IStorage {
     });
 
     return updated;
+  }
+
+  async resetPeriodsForProject(projectId: string): Promise<Period> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    await db.update(periods)
+      .set({
+        status: 'CLOSED',
+        endDate: today,
+        closedAt: new Date(),
+      })
+      .where(and(eq(periods.projectId, projectId), eq(periods.status, 'ACTIVE')));
+
+    const [newPeriod] = await db.insert(periods).values({
+      projectId,
+      name: 'الفترة الافتتاحية',
+      startDate: today,
+      status: 'ACTIVE',
+      p1BalanceStart: '0',
+      p2BalanceStart: '0',
+      p1BalanceEnd: '0',
+      p2BalanceEnd: '0',
+    }).returning();
+
+    await this.createEventLog({
+      projectId,
+      periodId: newPeriod.id,
+      eventType: 'PERIOD_OPENED',
+      message: 'تم تهيئة الفترة الافتتاحية',
+      metadata: null,
+    });
+
+    return newPeriod;
   }
 
   // Users
