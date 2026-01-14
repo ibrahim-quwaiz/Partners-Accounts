@@ -1,13 +1,23 @@
-import { MOCK_PROJECTS } from "@/lib/appContext";
+import { useApp } from "@/lib/appContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, ArrowLeft } from "lucide-react";
+import { Building2, ArrowLeft, Loader2 } from "lucide-react";
 
 interface ProjectSelectPageProps {
   onSelect: (projectId: string) => void;
 }
 
 export default function ProjectSelectPage({ onSelect }: ProjectSelectPageProps) {
+  const { projects, isLoadingProjects } = useApp();
+
+  if (isLoadingProjects) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-6">
       <div className="w-full max-w-3xl space-y-8">
@@ -17,11 +27,12 @@ export default function ProjectSelectPage({ onSelect }: ProjectSelectPageProps) 
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {MOCK_PROJECTS.map((project, index) => (
+          {projects.map((project, index) => (
             <Card 
               key={project.id} 
               className="group hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer"
               onClick={() => onSelect(project.id)}
+              data-testid={`project-card-${project.id}`}
             >
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between">

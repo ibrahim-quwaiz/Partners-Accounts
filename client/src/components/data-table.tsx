@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { Transaction, useApp, MOCK_PERIODS } from "@/lib/appContext";
+import { Transaction, useApp } from "@/lib/appContext";
 
 interface DataTableProps {
   data: Transaction[];
@@ -28,10 +28,10 @@ export function DataTable({
   showPeriodColumn = false,
   disableActions = false 
 }: DataTableProps) {
-  const { getPartnerName } = useApp();
+  const { getPartnerName, periods } = useApp();
 
   const getPeriodName = (periodId: string) => {
-    return MOCK_PERIODS.find(p => p.id === periodId)?.name || periodId;
+    return periods.find(p => p.id === periodId)?.name || periodId;
   };
 
   if (data.length === 0) {

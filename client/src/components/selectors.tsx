@@ -1,9 +1,9 @@
-import { useApp, MOCK_PERIODS } from "@/lib/appContext";
+import { useApp } from "@/lib/appContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 export function PeriodSelector() {
-  const { activePeriod, setActivePeriod } = useApp();
+  const { activePeriod, setActivePeriod, periods } = useApp();
 
   if (!activePeriod) return null;
 
@@ -13,7 +13,7 @@ export function PeriodSelector() {
       <Select
         value={activePeriod.id}
         onValueChange={(val) => {
-          const per = MOCK_PERIODS.find((p) => p.id === val);
+          const per = periods.find((p) => p.id === val);
           if (per) setActivePeriod(per);
         }}
       >
@@ -21,7 +21,7 @@ export function PeriodSelector() {
           <SelectValue placeholder="اختر الفترة" />
         </SelectTrigger>
         <SelectContent>
-          {MOCK_PERIODS.map((per) => (
+          {periods.map((per) => (
             <SelectItem key={per.id} value={per.id}>
               {per.name}
             </SelectItem>

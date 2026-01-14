@@ -13,11 +13,11 @@ import ReportsPage from "@/pages/reports";
 import EventLogPage from "@/pages/event-log";
 import ProjectSelectPage from "@/pages/project-select";
 import { Layout } from "@/components/layout";
-import { AppProvider, useApp, MOCK_PROJECTS } from "@/lib/appContext";
+import { AppProvider, useApp } from "@/lib/appContext";
 import { LoginModal } from "@/components/login-modal";
 
 function AppContent() {
-  const { user, setActiveProject } = useApp();
+  const { user, setActiveProject, projects } = useApp();
   const [projectSelected, setProjectSelected] = useState(false);
 
   // Show login first
@@ -30,7 +30,7 @@ function AppContent() {
     return (
       <ProjectSelectPage 
         onSelect={(projectId) => {
-          const project = MOCK_PROJECTS.find(p => p.id === projectId);
+          const project = projects.find(p => p.id === projectId);
           if (project) {
             setActiveProject(project);
             setProjectSelected(true);
