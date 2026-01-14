@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -16,68 +17,103 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, MessageCircle, Send, Clock, CheckCircle, XCircle } from "lucide-react";
-import { useApp, NotificationLog, MOCK_PERIODS } from "@/lib/appContext";
+import { Mail, MessageCircle, Send, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useApp } from "@/lib/appContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
 
-type NotifStatus = "pending" | "sent" | "failed";
+type NotifStatus = "PENDING" | "SENT" | "FAILED";
 
-interface ExtendedNotif extends NotificationLog {
-  periodId: string;
-  periodName: string;
+interface NotificationFromAPI {
+  id: string;
+  transactionId: string;
+  status: NotifStatus;
+  lastError: string | null;
+  sentEmailAt: string | null;
+  sentWhatsappAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  transaction?: {
+    id: string;
+    description: string;
+    periodId: string;
+  };
 }
 
 export default function NotificationsPage() {
-  const { notifications } = useApp();
+  const { periods } = useApp();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
-  const [notifStatuses, setNotifStatuses] = useState<Record<string, NotifStatus>>({});
 
   const isAllPeriods = selectedPeriod === "all";
 
-  // Extend notifications with period info (mock)
-  const extendedNotifications: ExtendedNotif[] = notifications.map((n, i) => ({
-    ...n,
-    periodId: MOCK_PERIODS[i % MOCK_PERIODS.length].id,
-    periodName: MOCK_PERIODS[i % MOCK_PERIODS.length].name,
-  }));
+  const { data: notifications = [], isLoading } = useQuery<NotificationFromAPI[]>({
+    queryKey: ["/api/notifications"],
+    enabled: true,
+  });
 
-  // Filter by period
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: NotifStatus }) => {
+      const res = await apiRequest("PATCH", `/api/notifications/${id}/status`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+    },
+  });
+
   const filteredNotifications = isAllPeriods 
-    ? extendedNotifications 
-    : extendedNotifications.filter(n => n.periodId === selectedPeriod);
+    ? notifications 
+    : notifications.filter(n => n.transaction?.periodId === selectedPeriod);
 
-  const getStatus = (id: string): NotifStatus => notifStatuses[id] || "pending";
-
-  const handleSend = (notif: ExtendedNotif) => {
-    // Simulate sending - randomly succeed or fail for demo
+  const handleSend = (notif: NotificationFromAPI) => {
     const success = Math.random() > 0.3;
-    setNotifStatuses(prev => ({
-      ...prev,
-      [notif.id]: success ? "sent" : "failed"
-    }));
+    const newStatus: NotifStatus = success ? "SENT" : "FAILED";
     
-    toast({
-      title: success ? "تم الإرسال بنجاح" : "فشل الإرسال",
-      description: success 
-        ? `تم إرسال الإشعار لـ "${notif.transactionName}"` 
-        : "حدث خطأ أثناء الإرسال، يرجى المحاولة مرة أخرى",
-      variant: success ? "default" : "destructive",
-    });
+    updateStatusMutation.mutate(
+      { id: notif.id, status: newStatus },
+      {
+        onSuccess: () => {
+          toast({
+            title: success ? "تم الإرسال بنجاح" : "فشل الإرسال",
+            description: success 
+              ? `تم إرسال الإشعار لـ "${notif.transaction?.description || 'المعاملة'}"` 
+              : "حدث خطأ أثناء الإرسال، يرجى المحاولة مرة أخرى",
+            variant: success ? "default" : "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const getPeriodName = (periodId: string | undefined) => {
+    if (!periodId) return "-";
+    const period = periods.find(p => p.id === periodId);
+    return period?.name || "-";
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), "yyyy/MM/dd hh:mm a");
+    } catch {
+      return dateStr;
+    }
   };
 
   const renderStatusBadge = (status: NotifStatus) => {
     switch (status) {
-      case "sent":
+      case "SENT":
         return (
           <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
             <CheckCircle className="h-3 w-3 me-1" />
             تم الإرسال
           </Badge>
         );
-      case "failed":
+      case "FAILED":
         return (
           <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
             <XCircle className="h-3 w-3 me-1" />
@@ -96,14 +132,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with period filter */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">سجل الإشعارات</h1>
           <p className="text-muted-foreground">تتبع المعاملات وحالة الإشعارات المرسلة</p>
         </div>
 
-        {/* Period Dropdown - Single Source of Truth */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">الفترة:</span>
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -112,7 +146,7 @@ export default function NotificationsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الفترات</SelectItem>
-              {MOCK_PERIODS.map(p => (
+              {periods.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
@@ -133,48 +167,57 @@ export default function NotificationsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredNotifications.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={isAllPeriods ? 6 : 5} className="h-24 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : filteredNotifications.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={isAllPeriods ? 6 : 5} className="h-24 text-center text-muted-foreground">
                   لا توجد إشعارات لهذه الفترة
                 </TableCell>
               </TableRow>
             ) : (
-              filteredNotifications.map((row) => {
-                const status = getStatus(row.id);
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-muted-foreground font-medium">
-                      {format(row.date, "yyyy/MM/dd hh:mm a")}
+              filteredNotifications.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="text-muted-foreground font-medium">
+                    {formatDate(row.createdAt)}
+                  </TableCell>
+                  <TableCell>{row.transaction?.description || "-"}</TableCell>
+                  {isAllPeriods && (
+                    <TableCell className="text-muted-foreground">
+                      {getPeriodName(row.transaction?.periodId)}
                     </TableCell>
-                    <TableCell>{row.transactionName}</TableCell>
-                    {isAllPeriods && (
-                      <TableCell className="text-muted-foreground">{row.periodName}</TableCell>
-                    )}
-                    <TableCell>
-                      <div className="flex justify-center gap-3">
-                        <Mail className={`h-5 w-5 ${status === "sent" ? "text-green-500" : "text-muted-foreground/40"}`} />
-                        <MessageCircle className={`h-5 w-5 ${status === "sent" ? "text-green-500" : "text-muted-foreground/40"}`} />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {renderStatusBadge(status)}
-                    </TableCell>
-                    <TableCell className="text-left">
-                      <Button 
-                        size="sm" 
-                        variant={status === "pending" ? "default" : "outline"}
-                        onClick={() => handleSend(row)}
-                        className="gap-2"
-                        disabled={status === "sent"}
-                      >
+                  )}
+                  <TableCell>
+                    <div className="flex justify-center gap-3">
+                      <Mail className={`h-5 w-5 ${row.sentEmailAt ? "text-green-500" : "text-muted-foreground/40"}`} />
+                      <MessageCircle className={`h-5 w-5 ${row.sentWhatsappAt ? "text-green-500" : "text-muted-foreground/40"}`} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {renderStatusBadge(row.status)}
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <Button 
+                      size="sm" 
+                      variant={row.status === "PENDING" ? "default" : "outline"}
+                      onClick={() => handleSend(row)}
+                      className="gap-2"
+                      disabled={row.status === "SENT" || updateStatusMutation.isPending}
+                    >
+                      {updateStatusMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
                         <Send className="h-3.5 w-3.5" />
-                        {status === "sent" ? "تم" : status === "failed" ? "إعادة" : "إرسال"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                      )}
+                      {row.status === "SENT" ? "تم" : row.status === "FAILED" ? "إعادة" : "إرسال"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

@@ -249,9 +249,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.transactionId, txId));
   }
 
-  async getAllNotifications(): Promise<Notification[]> {
-    return await db.select().from(notifications)
-      .orderBy(desc(notifications.createdAt));
+  async getAllNotifications(): Promise<any[]> {
+    const results = await db.select({
+      notification: notifications,
+      transaction: {
+        id: transactions.id,
+        description: transactions.description,
+        periodId: transactions.periodId,
+      }
+    })
+    .from(notifications)
+    .leftJoin(transactions, eq(notifications.transactionId, transactions.id))
+    .orderBy(desc(notifications.createdAt));
+    
+    return results.map(r => ({
+      ...r.notification,
+      transaction: r.transaction,
+    }));
   }
 
   async createNotification(notif: InsertNotification): Promise<Notification> {

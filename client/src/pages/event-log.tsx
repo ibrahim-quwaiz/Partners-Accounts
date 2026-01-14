@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -24,9 +25,11 @@ import {
   Send, 
   AlertTriangle, 
   ShieldX,
-  History 
+  History,
+  Loader2
 } from "lucide-react";
-import { MOCK_PERIODS } from "@/lib/appContext";
+import { useApp } from "@/lib/appContext";
+import { format } from "date-fns";
 
 type EventType = 
   | "PERIOD_OPENED" 
@@ -40,24 +43,15 @@ type EventType =
 
 interface EventLog {
   id: string;
-  date: string;
-  type: EventType;
-  description: string;
-  user: string;
-  periodId: string;
-  periodName: string;
+  projectId: string | null;
+  periodId: string | null;
+  transactionId: string | null;
+  eventType: EventType;
+  message: string;
+  metadata: any;
+  userId: string | null;
+  createdAt: string;
 }
-
-const MOCK_EVENTS: EventLog[] = [
-  { id: "e1", date: "2025/01/15 10:30", type: "TX_CREATED", description: "تم إنشاء معاملة: أكياس أسمنت", user: "محمد علي", periodId: "per_01", periodName: "يناير 2025" },
-  { id: "e2", date: "2025/01/15 10:32", type: "NOTIF_SENT", description: "تم إرسال إشعار للشريك 2", user: "النظام", periodId: "per_01", periodName: "يناير 2025" },
-  { id: "e3", date: "2025/01/14 14:20", type: "TX_UPDATED", description: "تم تعديل معاملة: دفعة مقدمة", user: "أحمد خالد", periodId: "per_01", periodName: "يناير 2025" },
-  { id: "e4", date: "2025/01/14 09:00", type: "PERIOD_OPENED", description: "تم فتح فترة: يناير 2025", user: "محمد علي", periodId: "per_01", periodName: "يناير 2025" },
-  { id: "e5", date: "2025/02/13 16:45", type: "TX_DELETED", description: "تم حذف معاملة: مصروف قديم", user: "محمد علي", periodId: "per_02", periodName: "فبراير 2025" },
-  { id: "e6", date: "2025/02/12 11:30", type: "NOTIF_FAILED", description: "فشل إرسال إشعار للشريك 1", user: "النظام", periodId: "per_02", periodName: "فبراير 2025" },
-  { id: "e7", date: "2025/02/10 08:15", type: "ACCESS_DENIED", description: "محاولة وصول غير مصرح: تعديل فترة مغلقة", user: "زائر", periodId: "per_02", periodName: "فبراير 2025" },
-  { id: "e8", date: "2025/03/01 00:00", type: "PERIOD_CLOSED", description: "تم إغلاق فترة: ديسمبر 2024", user: "النظام", periodId: "per_03", periodName: "مارس 2025" },
-];
 
 const getEventIcon = (type: EventType) => {
   switch (type) {
@@ -84,7 +78,7 @@ const getEventBadge = (type: EventType) => {
     NOTIF_FAILED: { bg: "bg-orange-500/10", text: "text-orange-600", label: "فشل إشعار" },
     ACCESS_DENIED: { bg: "bg-rose-500/10", text: "text-rose-600", label: "رفض وصول" },
   };
-  const style = styles[type];
+  const style = styles[type] || { bg: "bg-gray-500/10", text: "text-gray-600", label: type };
   return (
     <Badge className={`${style.bg} ${style.text} hover:${style.bg} border-transparent gap-1.5`}>
       {getEventIcon(type)}
@@ -94,25 +88,40 @@ const getEventBadge = (type: EventType) => {
 };
 
 export default function EventLogPage() {
+  const { activeProject, periods } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   
   const isAllPeriods = selectedPeriod === "all";
 
-  // Filter events by period
-  const filteredEvents = isAllPeriods 
-    ? MOCK_EVENTS 
-    : MOCK_EVENTS.filter(e => e.periodId === selectedPeriod);
+  const { data: events = [], isLoading } = useQuery<EventLog[]>({
+    queryKey: isAllPeriods 
+      ? ["/api/projects", activeProject?.id, "events"]
+      : ["/api/periods", selectedPeriod, "events"],
+    enabled: isAllPeriods ? !!activeProject?.id : !!selectedPeriod,
+  });
+
+  const getPeriodName = (periodId: string | null) => {
+    if (!periodId) return "-";
+    const period = periods.find(p => p.id === periodId);
+    return period?.name || "-";
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), "yyyy/MM/dd HH:mm");
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header with period filter */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">سجل الأحداث</h1>
           <p className="text-muted-foreground">تتبع جميع العمليات والتغييرات في النظام</p>
         </div>
 
-        {/* Period Dropdown - Single Source of Truth */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">الفترة:</span>
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -121,7 +130,7 @@ export default function EventLogPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الفترات</SelectItem>
-              {MOCK_PERIODS.map(p => (
+              {periods.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
@@ -137,30 +146,36 @@ export default function EventLogPage() {
               <TableHead className="text-right w-[140px]">نوع الحدث</TableHead>
               <TableHead className="text-right">الوصف</TableHead>
               {isAllPeriods && <TableHead className="text-right w-[120px]">الفترة</TableHead>}
-              <TableHead className="text-right w-[120px]">المستخدم</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredEvents.length === 0 ? (
+            {isLoading ? (
               <TableRow>
-                <TableCell colSpan={isAllPeriods ? 5 : 4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={isAllPeriods ? 4 : 3} className="h-24 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : events.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isAllPeriods ? 4 : 3} className="h-24 text-center text-muted-foreground">
                   لا توجد أحداث لهذه الفترة
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEvents.map((event) => (
+              events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="text-muted-foreground font-mono text-sm">
-                    {event.date}
+                    {formatDate(event.createdAt)}
                   </TableCell>
                   <TableCell>
-                    {getEventBadge(event.type)}
+                    {getEventBadge(event.eventType)}
                   </TableCell>
-                  <TableCell>{event.description}</TableCell>
+                  <TableCell>{event.message}</TableCell>
                   {isAllPeriods && (
-                    <TableCell className="text-muted-foreground">{event.periodName}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getPeriodName(event.periodId)}
+                    </TableCell>
                   )}
-                  <TableCell className="text-muted-foreground">{event.user}</TableCell>
                 </TableRow>
               ))
             )}
