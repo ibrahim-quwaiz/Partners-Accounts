@@ -63,6 +63,46 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/projects/:projectId/periods/open", async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      
+      const existingOpen = await storage.getOpenPeriodForProject(projectId);
+      if (existingOpen) {
+        return res.status(400).json({ error: "يوجد فترة مفتوحة بالفعل لهذا المشروع. أغلقها أولاً قبل فتح فترة جديدة." });
+      }
+      
+      const lastClosed = await storage.getLastClosedPeriod(projectId);
+      const p1BalanceStart = lastClosed?.p1BalanceEnd || "0";
+      const p2BalanceStart = lastClosed?.p2BalanceEnd || "0";
+      
+      const allPeriods = await storage.getPeriodsForProject(projectId);
+      const periodNumber = allPeriods.length + 1;
+      const today = new Date().toISOString().split('T')[0];
+      
+      const period = await storage.createPeriod({
+        projectId,
+        name: `فترة ${periodNumber}`,
+        startDate: today,
+        p1BalanceStart,
+        p2BalanceStart,
+      });
+      
+      res.status(201).json(period);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في فتح فترة جديدة" });
+    }
+  });
+
+  app.patch("/api/periods/:id/close", async (req, res) => {
+    try {
+      const period = await storage.closePeriodWithBalances(req.params.id);
+      res.json(period);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "فشل في إغلاق الفترة" });
+    }
+  });
+
   app.post("/api/periods", async (req, res) => {
     try {
       const validated = insertPeriodSchema.parse(req.body);

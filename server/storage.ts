@@ -37,6 +37,9 @@ export interface IStorage {
   getPeriod(id: string): Promise<Period | undefined>;
   createPeriod(period: InsertPeriod): Promise<Period>;
   updatePeriodStatus(id: string, status: 'ACTIVE' | 'CLOSED'): Promise<Period | undefined>;
+  getLastClosedPeriod(projectId: string): Promise<Period | undefined>;
+  getOpenPeriodForProject(projectId: string): Promise<Period | undefined>;
+  closePeriodWithBalances(id: string): Promise<Period>;
   
   // Users
   getUserProfile(id: string): Promise<UserProfile | undefined>;
@@ -133,6 +136,83 @@ export class DatabaseStorage implements IStorage {
       eventType: status === 'CLOSED' ? 'PERIOD_CLOSED' : 'PERIOD_OPENED',
       message: status === 'CLOSED' ? `تم إغلاق الفترة: ${period.name}` : `تم إعادة فتح الفترة: ${period.name}`,
       metadata: null,
+    });
+
+    return updated;
+  }
+
+  async getLastClosedPeriod(projectId: string): Promise<Period | undefined> {
+    const [lastClosed] = await db.select().from(periods)
+      .where(and(eq(periods.projectId, projectId), eq(periods.status, 'CLOSED')))
+      .orderBy(desc(periods.closedAt))
+      .limit(1);
+    return lastClosed;
+  }
+
+  async getOpenPeriodForProject(projectId: string): Promise<Period | undefined> {
+    const [openPeriod] = await db.select().from(periods)
+      .where(and(eq(periods.projectId, projectId), eq(periods.status, 'ACTIVE')));
+    return openPeriod;
+  }
+
+  async closePeriodWithBalances(id: string): Promise<Period> {
+    const period = await this.getPeriod(id);
+    if (!period) throw new Error("الفترة غير موجودة");
+    if (period.status === 'CLOSED') throw new Error("الفترة مغلقة بالفعل");
+
+    const txs = await this.getTransactionsForPeriod(id);
+    
+    const p1Start = parseFloat(period.p1BalanceStart || "0");
+    const p2Start = parseFloat(period.p2BalanceStart || "0");
+    
+    let p1ExpensesPaid = 0, p1RevenuesReceived = 0, p1SettlementsPaid = 0, p1SettlementsReceived = 0;
+    let p2ExpensesPaid = 0, p2RevenuesReceived = 0, p2SettlementsPaid = 0, p2SettlementsReceived = 0;
+    let totalExpenses = 0, totalRevenues = 0;
+
+    for (const tx of txs) {
+      const amount = parseFloat(tx.amount);
+      if (tx.type === 'EXPENSE') {
+        totalExpenses += amount;
+        if (tx.paidBy === 'P1') p1ExpensesPaid += amount;
+        else if (tx.paidBy === 'P2') p2ExpensesPaid += amount;
+      } else if (tx.type === 'REVENUE') {
+        totalRevenues += amount;
+        if (tx.paidBy === 'P1') p1RevenuesReceived += amount;
+        else if (tx.paidBy === 'P2') p2RevenuesReceived += amount;
+      } else if (tx.type === 'SETTLEMENT') {
+        if (tx.fromPartner === 'P1') { p1SettlementsPaid += amount; p2SettlementsReceived += amount; }
+        else if (tx.fromPartner === 'P2') { p2SettlementsPaid += amount; p1SettlementsReceived += amount; }
+      }
+    }
+
+    const netProfit = totalRevenues - totalExpenses;
+    const profitShare = netProfit / 2;
+
+    const p1End = p1Start + p1ExpensesPaid - p1RevenuesReceived + p1SettlementsPaid - p1SettlementsReceived + profitShare;
+    const p2End = p2Start + p2ExpensesPaid - p2RevenuesReceived + p2SettlementsPaid - p2SettlementsReceived + profitShare;
+
+    if (Math.abs(p1End + p2End) > 0.01) {
+      throw new Error(`الحسابات غير متوازنة: رصيد ابراهيم = ${p1End.toFixed(2)}, رصيد ناهض = ${p2End.toFixed(2)}`);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const [updated] = await db.update(periods)
+      .set({
+        status: 'CLOSED',
+        endDate: today,
+        p1BalanceEnd: p1End.toFixed(2),
+        p2BalanceEnd: p2End.toFixed(2),
+        closedAt: new Date(),
+      })
+      .where(eq(periods.id, id))
+      .returning();
+
+    await this.createEventLog({
+      projectId: period.projectId,
+      periodId: id,
+      eventType: 'PERIOD_CLOSED',
+      message: `تم إغلاق الفترة: ${period.name}`,
+      metadata: JSON.stringify({ p1BalanceEnd: p1End, p2BalanceEnd: p2End }),
     });
 
     return updated;
