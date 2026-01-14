@@ -260,10 +260,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [projects, activeProject]);
 
-  // Set initial active period when periods load
+  // Set initial active period when periods load, or realign if current period is invalid or closed
   useEffect(() => {
-    if (periods.length > 0 && !activePeriod) {
-      setActivePeriodState(periods[0]);
+    if (periods.length === 0) return;
+    
+    const firstActivePeriod = periods.find(p => p.status === "ACTIVE");
+    const currentInList = activePeriod && periods.find(p => p.id === activePeriod.id);
+    
+    // Realign if:
+    // 1. No current active period set, or current period no longer in list
+    // 2. Current period is CLOSED (per fresh data) but there's an ACTIVE period available
+    const currentIsClosed = currentInList?.status === "CLOSED";
+    const shouldRealign = !currentInList || (currentIsClosed && firstActivePeriod);
+    
+    if (shouldRealign) {
+      setActivePeriodState(firstActivePeriod || periods[0]);
     }
   }, [periods, activePeriod]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +18,6 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 export default function TransactionsPage() {
   const { getFilteredTransactions, deleteTransaction, activePeriod, periods, isLoadingPeriods, setActivePeriod } = useApp();
   const [activeTab, setActiveTab] = useState<"expense" | "revenue" | "settlement">("expense");
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("");
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -26,24 +25,14 @@ export default function TransactionsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    if (periods.length > 0 && !selectedPeriod) {
-      const firstActive = periods.find(p => p.status === "ACTIVE") || periods[0];
-      setSelectedPeriod(firstActive.id);
+  const handlePeriodChange = (periodId: string) => {
+    const period = periods.find(p => p.id === periodId);
+    if (period) {
+      setActivePeriod(period);
     }
-  }, [periods, selectedPeriod]);
+  };
 
-  useEffect(() => {
-    if (selectedPeriod && periods.length > 0) {
-      const period = periods.find(p => p.id === selectedPeriod);
-      if (period && period.id !== activePeriod?.id) {
-        setActivePeriod(period);
-      }
-    }
-  }, [selectedPeriod, periods]);
-
-  const currentPeriod = periods.find(p => p.id === selectedPeriod);
-  const isClosedPeriod = currentPeriod?.status === "CLOSED";
+  const isClosedPeriod = activePeriod?.status === "CLOSED";
 
   const handleAdd = () => {
     if (isClosedPeriod) return;
@@ -126,7 +115,7 @@ export default function TransactionsPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">الفترة:</span>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <Select value={activePeriod?.id || ""} onValueChange={handlePeriodChange}>
               <SelectTrigger className="w-[180px] bg-background" data-testid="period-selector">
                 <SelectValue placeholder="اختر فترة" />
               </SelectTrigger>
