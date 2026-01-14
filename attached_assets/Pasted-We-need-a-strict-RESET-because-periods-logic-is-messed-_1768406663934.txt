@@ -1,0 +1,78 @@
+We need a strict RESET because periods logic is messed up.
+
+ABSOLUTE RULES:
+- Do NOT add new features.
+- Do NOT redesign UI.
+- Do NOT touch Transactions calculations.
+- Only fix periods data + period selector wiring.
+- No "all periods" anywhere.
+- Keep changes minimal and explicit.
+
+========================
+GOAL
+========================
+1) Remove all existing periods and keep ONLY ONE period per project named:
+   "الفترة الافتتاحية"
+   status = "Open"
+2) Ensure the Period selector in ALL pages is driven ONLY by the periods list of the active project,
+   coming from the same source (AppContext / API) and created/managed in the Periods page.
+3) If a project has no periods, automatically create the "الفترة الافتتاحية" for that project.
+
+========================
+DATABASE ACTION (choose ONE approach)
+========================
+Preferred: Soft reset (safe)
+- Do NOT delete periods.
+- Instead set all existing periods for each project to status = "Closed"
+- Then create ONE new "الفترة الافتتاحية" with status "Open" per project.
+
+Alternative (only if user approves): Hard delete
+- Delete all rows from periods and recreate initial rows.
+
+Implement the PREFERRED soft reset automatically. Do NOT ask the user.
+
+Rules for the created افتتاحية period:
+- project_id = activeProjectId
+- period_name = "الفترة الافتتاحية"
+- start_date = today (auto)
+- end_date = null
+- status = "Open"
+- p1_balance_start = 0
+- p2_balance_start = 0
+- p1_balance_end = 0
+- p2_balance_end = 0
+
+Also enforce: ONLY ONE Open period per project.
+
+========================
+PERIODS PAGE BEHAVIOR
+========================
+- Show periods filtered by project_id
+- Remove any row selection checkbox (not needed)
+- The page should expose a single action button:
+  "تهيئة الفترة الافتتاحية"
+  It will run the reset for THIS active project only:
+    - Close all old periods for this project
+    - Create the افتتاحية Open period if not exists
+
+========================
+GLOBAL PERIOD SELECTOR WIRING
+========================
+- The period dropdown must use ONLY:
+  activeProjectId + periods loaded from API/context
+- activePeriodId must always be a valid period_id from the filtered list.
+- If periods list becomes empty (after reset or on first run),
+  automatically create the افتتاحية period and select it.
+
+No Mock data anywhere.
+
+========================
+DELIVERABLES
+========================
+1) List EXACT files you will change (paths only).
+2) Provide exact diffs for these files only.
+3) Provide the SQL used (if any) or the API calls used to perform the reset.
+4) Provide a manual test checklist:
+   - select project A -> reset -> only "الفترة الافتتاحية" appears
+   - switch to project B -> reset -> only "الفترة الافتتاحية" appears
+   - Transactions page loads and shows data for selected period without errors
