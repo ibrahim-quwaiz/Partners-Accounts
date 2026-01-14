@@ -55,6 +55,14 @@ Preferred communication style: Simple, everyday language.
 - Partners have 50% profit share
 - Event logging tracks all significant operations
 
+### Period Management
+- Only ONE open period allowed per project
+- Opening balances (p1_balance_start, p2_balance_start) copied from last closed period's end balances
+- If no closed period exists, opening balances = 0
+- Closing a period calculates end balances using formula: opening + expenses_paid - revenues_received + settlements_paid - settlements_received + profit_share
+- Balances must sum to 0 (within 0.01 tolerance) to close
+- start_date = today on open, end_date = today on close (auto-generated)
+
 ## External Dependencies
 
 ### Database
