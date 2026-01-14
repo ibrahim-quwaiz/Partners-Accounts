@@ -216,6 +216,29 @@ export class DatabaseStorage implements IStorage {
       metadata: JSON.stringify({ p1BalanceEnd: p1End, p2BalanceEnd: p2End }),
     });
 
+    // Auto-create next period with previous end balances as start balances
+    // Count periods BEFORE inserting to get correct numbering
+    const existingPeriodCount = await db.select().from(periods)
+      .where(eq(periods.projectId, period.projectId));
+    const periodNumber = existingPeriodCount.length + 1;
+    
+    const [newPeriod] = await db.insert(periods).values({
+      projectId: period.projectId,
+      name: `فترة ${periodNumber}`,
+      startDate: today,
+      status: 'ACTIVE',
+      p1BalanceStart: p1End.toFixed(2),
+      p2BalanceStart: p2End.toFixed(2),
+    }).returning();
+
+    await this.createEventLog({
+      projectId: period.projectId,
+      periodId: newPeriod.id,
+      eventType: 'PERIOD_OPENED',
+      message: `تم فتح فترة جديدة: ${newPeriod.name}`,
+      metadata: JSON.stringify({ p1BalanceStart: p1End, p2BalanceStart: p2End }),
+    });
+
     return updated;
   }
 

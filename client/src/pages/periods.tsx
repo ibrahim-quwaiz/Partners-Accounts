@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Unlock, RotateCcw, Loader2 } from "lucide-react";
+import { Lock, Unlock, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/appContext";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -18,33 +18,36 @@ export default function PeriodsPage() {
   const { activeProject, periods, isLoadingPeriods: isLoading } = useApp();
   const queryClient = useQueryClient();
 
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/projects/${activeProject?.id}/periods/reset`, {
-        method: "POST",
+  const openPeriod = periods.find(p => p.status === "ACTIVE");
+
+  const closePeriodMutation = useMutation({
+    mutationFn: async (periodId: string) => {
+      const res = await fetch(`/api/periods/${periodId}/close`, {
+        method: "PATCH",
         credentials: "include",
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "فشل في تهيئة الفترة الافتتاحية");
+        throw new Error(data.error || "فشل في إقفال الفترة");
       }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", activeProject?.id, "periods"] });
-      toast.success("تم تهيئة الفترة الافتتاحية بنجاح");
+      toast.success("تم إقفال الفترة وفتح فترة جديدة تلقائياً");
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
-  const formatDate = (dateStr: string | null) => {
+  const formatDate = (dateStr: string | Date | null) => {
     if (!dateStr) return "-";
     try {
-      return format(new Date(dateStr), "yyyy/MM/dd");
+      const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+      return format(date, "yyyy/MM/dd");
     } catch {
-      return dateStr;
+      return String(dateStr);
     }
   };
 
@@ -63,19 +66,22 @@ export default function PeriodsPage() {
           <h1 className="text-2xl font-bold tracking-tight">الفترات المحاسبية</h1>
           <p className="text-muted-foreground">إدارة الفترات وحالتها</p>
         </div>
-        <Button 
-          className="gap-2" 
-          onClick={() => resetMutation.mutate()}
-          disabled={resetMutation.isPending}
-          data-testid="btn-reset-period"
-        >
-          {resetMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RotateCcw className="h-4 w-4" />
-          )}
-          تهيئة الفترة الافتتاحية
-        </Button>
+        {openPeriod && (
+          <Button 
+            variant="destructive"
+            className="gap-2" 
+            onClick={() => closePeriodMutation.mutate(openPeriod.id)}
+            disabled={closePeriodMutation.isPending}
+            data-testid="btn-close-period"
+          >
+            {closePeriodMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
+            إقفال الفترة الحالية
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -97,7 +103,7 @@ export default function PeriodsPage() {
               {periods.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                    لا توجد فترات. اضغط "تهيئة الفترة الافتتاحية" للبدء.
+                    لا توجد فترات. سيتم إنشاء الفترة الافتتاحية تلقائياً.
                   </TableCell>
                 </TableRow>
               ) : (

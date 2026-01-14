@@ -44,8 +44,24 @@ export async function registerRoutes(
   // =====================================================
   app.get("/api/projects/:projectId/periods", async (req, res) => {
     try {
-      const periods = await storage.getPeriodsForProject(req.params.projectId);
-      res.json(periods);
+      const projectId = req.params.projectId;
+      let periodsList = await storage.getPeriodsForProject(projectId);
+      
+      // First-run initialization: create "الفترة الافتتاحية" if no periods exist
+      if (periodsList.length === 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const newPeriod = await storage.createPeriod({
+          projectId,
+          name: 'الفترة الافتتاحية',
+          startDate: today,
+          status: 'ACTIVE',
+          p1BalanceStart: '0',
+          p2BalanceStart: '0',
+        });
+        periodsList = [newPeriod];
+      }
+      
+      res.json(periodsList);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch periods" });
     }

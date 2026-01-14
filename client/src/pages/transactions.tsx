@@ -2,21 +2,15 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, Hash, Coins, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, TrendingUp, TrendingDown, ArrowLeftRight, Hash, Coins, Loader2, Info } from "lucide-react";
 import { useApp, Transaction } from "@/lib/appContext";
 import { DataTable } from "@/components/data-table";
 import { TransactionModal } from "@/components/transaction-modal";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 
 export default function TransactionsPage() {
-  const { getFilteredTransactions, deleteTransaction, activePeriod, periods, isLoadingPeriods, setActivePeriod } = useApp();
+  const { getFilteredTransactions, deleteTransaction, periods, isLoadingPeriods } = useApp();
   const [activeTab, setActiveTab] = useState<"expense" | "revenue" | "settlement">("expense");
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,29 +19,22 @@ export default function TransactionsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
-  const handlePeriodChange = (periodId: string) => {
-    const period = periods.find(p => p.id === periodId);
-    if (period) {
-      setActivePeriod(period);
-    }
-  };
-
-  const isClosedPeriod = activePeriod?.status === "CLOSED";
+  const openPeriod = periods.find(p => p.status === "ACTIVE");
 
   const handleAdd = () => {
-    if (isClosedPeriod) return;
+    if (!openPeriod) return;
     setEditingTx(null);
     setIsModalOpen(true);
   };
 
   const handleEdit = (tx: Transaction) => {
-    if (isClosedPeriod) return;
+    if (!openPeriod) return;
     setEditingTx(tx);
     setIsModalOpen(true);
   };
 
   const handleDeleteClick = (tx: Transaction) => {
-    if (isClosedPeriod) return;
+    if (!openPeriod) return;
     setTxToDelete(tx);
     setIsDeleteDialogOpen(true);
   };
@@ -96,10 +83,19 @@ export default function TransactionsPage() {
     );
   }
 
-  if (periods.length === 0) {
+  if (!openPeriod) {
     return (
-      <div className="flex items-center justify-center h-32 text-muted-foreground">
-        لا توجد فترات. يرجى إنشاء فترة من صفحة الفترات أولاً.
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">المعاملات</h1>
+          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات</p>
+        </div>
+        <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-700">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            لا توجد فترة مفتوحة. يرجى الانتظار حتى يتم إنشاء فترة افتتاحية.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -109,34 +105,19 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">المعاملات</h1>
-          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات</p>
+          <p className="text-muted-foreground">
+            الفترة الحالية: <span className="font-medium text-foreground">{openPeriod.name}</span>
+          </p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">الفترة:</span>
-            <Select value={activePeriod?.id || ""} onValueChange={handlePeriodChange}>
-              <SelectTrigger className="w-[180px] bg-background" data-testid="period-selector">
-                <SelectValue placeholder="اختر فترة" />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button 
-            onClick={handleAdd} 
-            className="gap-2 shadow-sm"
-            disabled={isClosedPeriod}
-            data-testid="btn-add-transaction"
-          >
-            <Plus className="h-4 w-4" />
-            {getAddButtonText()}
-          </Button>
-        </div>
+        <Button 
+          onClick={handleAdd} 
+          className="gap-2 shadow-sm"
+          data-testid="btn-add-transaction"
+        >
+          <Plus className="h-4 w-4" />
+          {getAddButtonText()}
+        </Button>
       </div>
 
       <Tabs 
@@ -202,7 +183,7 @@ export default function TransactionsPage() {
             onEdit={handleEdit} 
             onDelete={handleDeleteClick}
             showPeriodColumn={false}
-            disableActions={isClosedPeriod}
+            disableActions={false}
           />
         </TabsContent>
 
@@ -213,7 +194,7 @@ export default function TransactionsPage() {
             onEdit={handleEdit} 
             onDelete={handleDeleteClick}
             showPeriodColumn={false}
-            disableActions={isClosedPeriod}
+            disableActions={false}
           />
         </TabsContent>
 
@@ -224,7 +205,7 @@ export default function TransactionsPage() {
             onEdit={handleEdit} 
             onDelete={handleDeleteClick}
             showPeriodColumn={false}
-            disableActions={isClosedPeriod}
+            disableActions={false}
           />
         </TabsContent>
       </Tabs>

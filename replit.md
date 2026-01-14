@@ -51,17 +51,23 @@ Preferred communication style: Simple, everyday language.
 ### Business Rules
 - Transactions are tied to both Project and Period
 - Closed periods prevent add/edit/delete operations
-- "All Periods" view is read-only (disables modification buttons)
+- Transactions page shows only the currently open period (no period selector)
 - Partners have 50% profit share
 - Event logging tracks all significant operations
 
-### Period Management
-- Only ONE open period allowed per project
-- Opening balances (p1_balance_start, p2_balance_start) copied from last closed period's end balances
-- If no closed period exists, opening balances = 0
-- Closing a period calculates end balances using formula: opening + expenses_paid - revenues_received + settlements_paid - settlements_received + profit_share
-- Balances must sum to 0 (within 0.01 tolerance) to close
-- start_date = today on open, end_date = today on close (auto-generated)
+### Strict Period Management
+- **No manual "Add Period" button** - periods are managed automatically
+- **First-run initialization**: "الفترة الافتتاحية" (Opening Period) is auto-created when a project has no periods
+- **Close Period button**: Only appears for the open period on the Periods page
+- **Auto-create next period**: When a period is closed, a new period is automatically created with:
+  - Previous end balances become the new start balances
+  - Name: "فترة N" where N is the period sequence number
+  - Start date: Same as the closed period's end date (today)
+- **Balance calculation on close**: 
+  - Formula: opening + expenses_paid - revenues_received + settlements_paid - settlements_received + profit_share
+  - Balances must sum to 0 (within 0.01 tolerance) to close
+- **Only ONE open period allowed per project**
+- **AppContext auto-selects ACTIVE period** when periods are loaded
 
 ## External Dependencies
 
