@@ -1,38 +1,366 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { eq, and, desc } from "drizzle-orm";
+import { db } from "./db";
+import {
+  projects,
+  periods,
+  userProfiles,
+  transactions,
+  notifications,
+  eventLogs,
+  partners,
+  periodPartnerBalances,
+  type Project,
+  type Period,
+  type UserProfile,
+  type Transaction,
+  type Notification,
+  type EventLog,
+  type Partner,
+  type Balance,
+  type InsertProject,
+  type InsertPeriod,
+  type InsertUserProfile,
+  type InsertTransaction,
+  type InsertNotification,
+  type InsertEventLog,
+  type InsertPartner,
+  type InsertBalance,
+} from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Projects
+  getAllProjects(): Promise<Project[]>;
+  getProject(id: string): Promise<Project | undefined>;
+  
+  // Periods
+  getPeriodsForProject(projectId: string): Promise<Period[]>;
+  getPeriod(id: string): Promise<Period | undefined>;
+  createPeriod(period: InsertPeriod): Promise<Period>;
+  updatePeriodStatus(id: string, status: 'ACTIVE' | 'CLOSED'): Promise<Period | undefined>;
+  
+  // Users
+  getUserProfile(id: string): Promise<UserProfile | undefined>;
+  getUserByUsername(username: string): Promise<UserProfile | undefined>;
+  createUserProfile(user: InsertUserProfile): Promise<UserProfile>;
+  updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
+  getAllUsers(): Promise<UserProfile[]>;
+  
+  // Transactions
+  getTransactionsForPeriod(periodId: string): Promise<Transaction[]>;
+  getTransactionsForProject(projectId: string): Promise<Transaction[]>;
+  getTransaction(id: string): Promise<Transaction | undefined>;
+  createTransaction(tx: InsertTransaction): Promise<Transaction>;
+  updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined>;
+  deleteTransaction(id: string): Promise<boolean>;
+  
+  // Notifications
+  getNotificationsForTransaction(txId: string): Promise<Notification[]>;
+  getAllNotifications(): Promise<Notification[]>;
+  createNotification(notif: InsertNotification): Promise<Notification>;
+  updateNotificationStatus(id: string, status: 'PENDING' | 'SENT' | 'FAILED', error?: string): Promise<Notification | undefined>;
+  
+  // Event Logs
+  getEventLogsForProject(projectId: string): Promise<EventLog[]>;
+  getEventLogsForPeriod(periodId: string): Promise<EventLog[]>;
+  getAllEventLogs(): Promise<EventLog[]>;
+  createEventLog(log: InsertEventLog): Promise<EventLog>;
+  
+  // Partners
+  getAllPartners(): Promise<Partner[]>;
+  getPartner(id: 'P1' | 'P2'): Promise<Partner | undefined>;
+  updatePartner(id: 'P1' | 'P2', updates: Partial<Partner>): Promise<Partner | undefined>;
+  
+  // Period Balances
+  getBalancesForPeriod(periodId: string): Promise<Balance[]>;
+  createBalance(balance: InsertBalance): Promise<Balance>;
+  updateBalance(id: string, updates: Partial<Balance>): Promise<Balance | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  // Projects
+  async getAllProjects(): Promise<Project[]> {
+    return await db.select().from(projects);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  // Periods
+  async getPeriodsForProject(projectId: string): Promise<Period[]> {
+    return await db.select().from(periods)
+      .where(eq(periods.projectId, projectId))
+      .orderBy(desc(periods.createdAt));
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+  async getPeriod(id: string): Promise<Period | undefined> {
+    const [period] = await db.select().from(periods).where(eq(periods.id, id));
+    return period;
+  }
+
+  async createPeriod(period: InsertPeriod): Promise<Period> {
+    const [newPeriod] = await db.insert(periods).values(period).returning();
+    
+    // Log event
+    await this.createEventLog({
+      projectId: period.projectId,
+      periodId: newPeriod.id,
+      eventType: 'PERIOD_OPENED',
+      message: `تم فتح فترة: ${period.name}`,
+      metadata: null,
+    });
+    
+    return newPeriod;
+  }
+
+  async updatePeriodStatus(id: string, status: 'ACTIVE' | 'CLOSED'): Promise<Period | undefined> {
+    const [period] = await db.select().from(periods).where(eq(periods.id, id));
+    if (!period) return undefined;
+
+    const [updated] = await db.update(periods)
+      .set({ 
+        status,
+        closedAt: status === 'CLOSED' ? new Date() : null,
+      })
+      .where(eq(periods.id, id))
+      .returning();
+
+    // Log event
+    await this.createEventLog({
+      projectId: period.projectId,
+      periodId: id,
+      eventType: status === 'CLOSED' ? 'PERIOD_CLOSED' : 'PERIOD_OPENED',
+      message: status === 'CLOSED' ? `تم إغلاق الفترة: ${period.name}` : `تم إعادة فتح الفترة: ${period.name}`,
+      metadata: null,
+    });
+
+    return updated;
+  }
+
+  // Users
+  async getUserProfile(id: string): Promise<UserProfile | undefined> {
+    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
     return user;
   }
+
+  async getUserByUsername(username: string): Promise<UserProfile | undefined> {
+    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.username, username));
+    return user;
+  }
+
+  async createUserProfile(user: InsertUserProfile): Promise<UserProfile> {
+    const [newUser] = await db.insert(userProfiles).values(user).returning();
+    return newUser;
+  }
+
+  async updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const [updated] = await db.update(userProfiles)
+      .set(updates)
+      .where(eq(userProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getAllUsers(): Promise<UserProfile[]> {
+    return await db.select().from(userProfiles);
+  }
+
+  // Transactions
+  async getTransactionsForPeriod(periodId: string): Promise<Transaction[]> {
+    return await db.select().from(transactions)
+      .where(eq(transactions.periodId, periodId))
+      .orderBy(desc(transactions.date));
+  }
+
+  async getTransactionsForProject(projectId: string): Promise<Transaction[]> {
+    return await db.select().from(transactions)
+      .where(eq(transactions.projectId, projectId))
+      .orderBy(desc(transactions.date));
+  }
+
+  async getTransaction(id: string): Promise<Transaction | undefined> {
+    const [tx] = await db.select().from(transactions).where(eq(transactions.id, id));
+    return tx;
+  }
+
+  async createTransaction(tx: InsertTransaction): Promise<Transaction> {
+    const [newTx] = await db.insert(transactions).values(tx).returning();
+    
+    // Log event
+    await this.createEventLog({
+      projectId: tx.projectId,
+      periodId: tx.periodId,
+      transactionId: newTx.id,
+      userId: tx.createdBy || null,
+      eventType: 'TX_CREATED',
+      message: `تم إنشاء معاملة: ${tx.description}`,
+      metadata: null,
+    });
+
+    return newTx;
+  }
+
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined> {
+    const [tx] = await db.select().from(transactions).where(eq(transactions.id, id));
+    if (!tx) return undefined;
+
+    const [updated] = await db.update(transactions)
+      .set(updates)
+      .where(eq(transactions.id, id))
+      .returning();
+
+    // Log event
+    await this.createEventLog({
+      projectId: tx.projectId,
+      periodId: tx.periodId,
+      transactionId: id,
+      userId: tx.createdBy || null,
+      eventType: 'TX_UPDATED',
+      message: `تم تعديل معاملة: ${tx.description}`,
+      metadata: null,
+    });
+
+    return updated;
+  }
+
+  async deleteTransaction(id: string): Promise<boolean> {
+    const [tx] = await db.select().from(transactions).where(eq(transactions.id, id));
+    if (!tx) return false;
+
+    // Log event before deleting
+    await this.createEventLog({
+      projectId: tx.projectId,
+      periodId: tx.periodId,
+      transactionId: id,
+      userId: tx.createdBy || null,
+      eventType: 'TX_DELETED',
+      message: `تم حذف معاملة: ${tx.description}`,
+      metadata: null,
+    });
+
+    await db.delete(transactions).where(eq(transactions.id, id));
+    return true;
+  }
+
+  // Notifications
+  async getNotificationsForTransaction(txId: string): Promise<Notification[]> {
+    return await db.select().from(notifications)
+      .where(eq(notifications.transactionId, txId));
+  }
+
+  async getAllNotifications(): Promise<Notification[]> {
+    return await db.select().from(notifications)
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(notif: InsertNotification): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values(notif).returning();
+    return newNotif;
+  }
+
+  async updateNotificationStatus(
+    id: string, 
+    status: 'PENDING' | 'SENT' | 'FAILED', 
+    error?: string
+  ): Promise<Notification | undefined> {
+    const updates: any = { status };
+    if (error) updates.lastError = error;
+    if (status === 'SENT') {
+      updates.sentEmailAt = new Date();
+      updates.sentWhatsappAt = new Date();
+    }
+
+    const [updated] = await db.update(notifications)
+      .set(updates)
+      .where(eq(notifications.id, id))
+      .returning();
+
+    // Log event
+    if (status === 'SENT') {
+      await this.createEventLog({
+        eventType: 'NOTIF_SENT',
+        message: `تم إرسال إشعار`,
+        metadata: null,
+        projectId: null,
+        periodId: null,
+        transactionId: null,
+        userId: null,
+      });
+    } else if (status === 'FAILED') {
+      await this.createEventLog({
+        eventType: 'NOTIF_FAILED',
+        message: `فشل إرسال إشعار: ${error}`,
+        metadata: null,
+        projectId: null,
+        periodId: null,
+        transactionId: null,
+        userId: null,
+      });
+    }
+
+    return updated;
+  }
+
+  // Event Logs
+  async getEventLogsForProject(projectId: string): Promise<EventLog[]> {
+    return await db.select().from(eventLogs)
+      .where(eq(eventLogs.projectId, projectId))
+      .orderBy(desc(eventLogs.createdAt));
+  }
+
+  async getEventLogsForPeriod(periodId: string): Promise<EventLog[]> {
+    return await db.select().from(eventLogs)
+      .where(eq(eventLogs.periodId, periodId))
+      .orderBy(desc(eventLogs.createdAt));
+  }
+
+  async getAllEventLogs(): Promise<EventLog[]> {
+    return await db.select().from(eventLogs)
+      .orderBy(desc(eventLogs.createdAt));
+  }
+
+  async createEventLog(log: InsertEventLog): Promise<EventLog> {
+    const [newLog] = await db.insert(eventLogs).values(log).returning();
+    return newLog;
+  }
+
+  // Partners
+  async getAllPartners(): Promise<Partner[]> {
+    return await db.select().from(partners);
+  }
+
+  async getPartner(id: 'P1' | 'P2'): Promise<Partner | undefined> {
+    const [partner] = await db.select().from(partners).where(eq(partners.id, id));
+    return partner;
+  }
+
+  async updatePartner(id: 'P1' | 'P2', updates: Partial<Partner>): Promise<Partner | undefined> {
+    const [updated] = await db.update(partners)
+      .set(updates)
+      .where(eq(partners.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Period Balances
+  async getBalancesForPeriod(periodId: string): Promise<Balance[]> {
+    return await db.select().from(periodPartnerBalances)
+      .where(eq(periodPartnerBalances.periodId, periodId));
+  }
+
+  async createBalance(balance: InsertBalance): Promise<Balance> {
+    const [newBalance] = await db.insert(periodPartnerBalances).values(balance).returning();
+    return newBalance;
+  }
+
+  async updateBalance(id: string, updates: Partial<Balance>): Promise<Balance | undefined> {
+    const [updated] = await db.update(periodPartnerBalances)
+      .set(updates)
+      .where(eq(periodPartnerBalances.id, id))
+      .returning();
+    return updated;
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
