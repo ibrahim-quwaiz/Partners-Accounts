@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import { format } from "date-fns";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "./queryClient";
 
 // --- Types ---
 export type Partner = "P1" | "P2";
@@ -14,6 +15,7 @@ export interface Period {
   name: string; // e.g., "Jan 2025"
   startDate: Date;
   endDate: Date;
+  status?: string;
 }
 
 export interface Transaction {
@@ -50,72 +52,50 @@ export interface PartnerProfile {
   phone: string;
 }
 
-// --- Mock Data ---
-export const MOCK_PROJECTS: Project[] = [
-  { id: "proj_01", name: "مشروع برج الألفية" },
-  { id: "proj_02", name: "تجديد السوق المركزي" },
-];
+// --- Backward compatibility exports (deprecated, use context instead) ---
+export const MOCK_PROJECTS: Project[] = [];
+export const MOCK_PERIODS: Period[] = [];
+export const MOCK_PARTNERS: PartnerProfile[] = [];
+export const MOCK_TRANSACTIONS: Transaction[] = [];
 
-export const MOCK_PERIODS: Period[] = [
-  { id: "per_01", name: "يناير 2025", startDate: new Date(2025, 0, 1), endDate: new Date(2025, 0, 31) },
-  { id: "per_02", name: "فبراير 2025", startDate: new Date(2025, 1, 1), endDate: new Date(2025, 1, 28) },
-  { id: "per_03", name: "مارس 2025", startDate: new Date(2025, 2, 1), endDate: new Date(2025, 2, 31) },
-];
+// --- Helper Functions ---
+function parseDate(dateStr: string | Date): Date {
+  if (dateStr instanceof Date) return dateStr;
+  return new Date(dateStr);
+}
 
-export const MOCK_PARTNERS: PartnerProfile[] = [
-  { id: "P1", displayName: "الشريك 1", phone: "0500000001" },
-  { id: "P2", displayName: "الشريك 2", phone: "0500000002" },
-];
+function parseTransaction(tx: any): Transaction {
+  return {
+    ...tx,
+    date: parseDate(tx.date),
+    amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount,
+    type: tx.type.toLowerCase() as "expense" | "revenue" | "settlement",
+  };
+}
 
-export const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: "tx_01",
-    projectId: "proj_01",
-    periodId: "per_01",
-    date: new Date(2025, 0, 5),
-    description: "أكياس أسمنت (50x)",
-    amount: 1200,
-    type: "expense",
-    paidBy: "P1",
-  },
-  {
-    id: "tx_02",
-    projectId: "proj_01",
-    periodId: "per_01",
-    date: new Date(2025, 0, 8),
-    description: "دفعة مقدمة من العميل",
-    amount: 5000,
-    type: "revenue",
-    paidBy: "P2", // Received by P2
-  },
-  {
-    id: "tx_03",
-    projectId: "proj_01",
-    periodId: "per_01",
-    date: new Date(2025, 0, 15),
-    description: "تسوية جزئية",
-    amount: 500,
-    type: "settlement",
-    fromPartner: "P1",
-    toPartner: "P2",
-  },
-  {
-    id: "tx_04",
-    projectId: "proj_02",
-    periodId: "per_01",
-    date: new Date(2025, 0, 10),
-    description: "لوازم طلاء",
-    amount: 300,
-    type: "expense",
-    paidBy: "P2",
-  },
-];
+function parsePeriod(period: any): Period {
+  return {
+    ...period,
+    startDate: parseDate(period.startDate),
+    endDate: parseDate(period.endDate),
+  };
+}
+
+function parseNotification(notif: any): NotificationLog {
+  return {
+    id: notif.id,
+    transactionName: notif.transaction?.description || "Unknown",
+    emailSent: !!notif.sentEmailAt,
+    whatsappSent: !!notif.sentWhatsappAt,
+    date: parseDate(notif.createdAt),
+  };
+}
 
 // --- Context ---
 interface AppContextType {
-  activeProject: Project;
+  activeProject: Project | null;
   setActiveProject: (project: Project) => void;
-  activePeriod: Period;
+  activePeriod: Period | null;
   setActivePeriod: (period: Period) => void;
   transactions: Transaction[];
   addTransaction: (tx: Omit<Transaction, "id">) => void;
@@ -136,56 +116,213 @@ interface AppContextType {
   partners: PartnerProfile[];
   updatePartner: (id: Partner, data: Partial<PartnerProfile>) => void;
   getPartnerName: (id: Partner) => string;
+
+  // Loading states
+  isLoadingProjects: boolean;
+  isLoadingPeriods: boolean;
+  isLoadingTransactions: boolean;
+  isLoadingPartners: boolean;
+  isLoadingNotifications: boolean;
+
+  // Data lists
+  projects: Project[];
+  periods: Period[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [activeProject, setActiveProject] = useState<Project>(MOCK_PROJECTS[0]);
-  const [activePeriod, setActivePeriod] = useState<Period>(MOCK_PERIODS[0]);
-  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const queryClient = useQueryClient();
+  const [activeProject, setActiveProjectState] = useState<Project | null>(null);
+  const [activePeriod, setActivePeriodState] = useState<Period | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [notifications, setNotifications] = useState<NotificationLog[]>([]);
-  const [partners, setPartners] = useState<PartnerProfile[]>(MOCK_PARTNERS);
 
-  const addNotification = (txName: string) => {
-    const newLog: NotificationLog = {
-      id: `notif_${Date.now()}`,
-      transactionName: txName,
-      emailSent: false,
-      whatsappSent: false,
-      date: new Date(),
-    };
-    setNotifications(prev => [newLog, ...prev]);
+  // =====================================================
+  // QUERIES
+  // =====================================================
+
+  // Fetch all projects
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+    enabled: true,
+  });
+
+  // Fetch periods for active project
+  const { data: periods = [], isLoading: isLoadingPeriods } = useQuery<Period[]>({
+    queryKey: ["/api/projects", activeProject?.id, "periods"],
+    enabled: !!activeProject?.id,
+    select: (data) => data.map(parsePeriod),
+  });
+
+  // Fetch transactions for active period
+  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
+    queryKey: ["/api/periods", activePeriod?.id, "transactions"],
+    enabled: !!activePeriod?.id,
+    select: (data) => data.map(parseTransaction),
+  });
+
+  // Fetch partners
+  const { data: partners = [], isLoading: isLoadingPartners } = useQuery<PartnerProfile[]>({
+    queryKey: ["/api/partners"],
+    enabled: true,
+  });
+
+  // Fetch notifications
+  const { data: notificationsData = [], isLoading: isLoadingNotifications } = useQuery<any[]>({
+    queryKey: ["/api/notifications"],
+    enabled: true,
+    select: (data) => data.map(parseNotification),
+  });
+
+  const notifications = notificationsData as NotificationLog[];
+
+  // =====================================================
+  // MUTATIONS
+  // =====================================================
+
+  // Create transaction
+  const createTransactionMutation = useMutation({
+    mutationFn: async (tx: Omit<Transaction, "id">) => {
+      const payload = {
+        projectId: tx.projectId,
+        periodId: tx.periodId,
+        type: tx.type.toUpperCase(),
+        date: tx.date instanceof Date ? tx.date.toISOString().split('T')[0] : tx.date,
+        description: tx.description,
+        amount: tx.amount.toString(),
+        paidBy: tx.paidBy || null,
+        fromPartner: tx.fromPartner || null,
+        toPartner: tx.toPartner || null,
+      };
+      const res = await apiRequest("POST", "/api/transactions", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods", activePeriod?.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
+  // Update transaction
+  const updateTransactionMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Transaction> }) => {
+      const payload: any = {};
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.amount !== undefined) payload.amount = updates.amount.toString();
+      if (updates.date !== undefined) {
+        payload.date = updates.date instanceof Date 
+          ? updates.date.toISOString().split('T')[0] 
+          : updates.date;
+      }
+      if (updates.type !== undefined) payload.type = updates.type.toUpperCase();
+      if (updates.paidBy !== undefined) payload.paidBy = updates.paidBy;
+      if (updates.fromPartner !== undefined) payload.fromPartner = updates.fromPartner;
+      if (updates.toPartner !== undefined) payload.toPartner = updates.toPartner;
+
+      const res = await apiRequest("PATCH", `/api/transactions/${id}`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods", activePeriod?.id, "transactions"] });
+    },
+  });
+
+  // Delete transaction
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/transactions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods", activePeriod?.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
+  // Update partner
+  const updatePartnerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: Partner; data: Partial<PartnerProfile> }) => {
+      const res = await apiRequest("PATCH", `/api/partners/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
+    },
+  });
+
+  // =====================================================
+  // EFFECTS
+  // =====================================================
+
+  // Set initial active project when projects load
+  useEffect(() => {
+    if (projects.length > 0 && !activeProject) {
+      setActiveProjectState(projects[0]);
+    }
+  }, [projects, activeProject]);
+
+  // Set initial active period when periods load
+  useEffect(() => {
+    if (periods.length > 0 && !activePeriod) {
+      setActivePeriodState(periods[0]);
+    }
+  }, [periods, activePeriod]);
+
+  // Update MOCK exports for backward compatibility
+  useEffect(() => {
+    if (projects.length > 0) {
+      MOCK_PROJECTS.length = 0;
+      MOCK_PROJECTS.push(...projects);
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    if (periods.length > 0) {
+      MOCK_PERIODS.length = 0;
+      MOCK_PERIODS.push(...periods);
+    }
+  }, [periods]);
+
+  useEffect(() => {
+    if (partners.length > 0) {
+      MOCK_PARTNERS.length = 0;
+      MOCK_PARTNERS.push(...partners);
+    }
+  }, [partners]);
+
+  // =====================================================
+  // HANDLERS
+  // =====================================================
+
+  const setActiveProject = (project: Project) => {
+    setActiveProjectState(project);
+    setActivePeriodState(null); // Reset period when project changes
+  };
+
+  const setActivePeriod = (period: Period) => {
+    setActivePeriodState(period);
   };
 
   const addTransaction = (tx: Omit<Transaction, "id">) => {
-    const newTx = { ...tx, id: `tx_${Date.now()}` };
-    setTransactions((prev) => [...prev, newTx]);
-    // Link: Automatically add notification when transaction is added
-    addNotification(tx.description);
+    createTransactionMutation.mutate(tx);
   };
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions((prev) =>
-      prev.map((tx) => (tx.id === id ? { ...tx, ...updates } : tx))
-    );
+    updateTransactionMutation.mutate({ id, updates });
   };
 
   const deleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+    deleteTransactionMutation.mutate(id);
   };
 
   const getFilteredTransactions = (type?: Transaction["type"]) => {
     return transactions.filter((tx) => {
-      const matchProject = tx.projectId === activeProject.id;
-      const matchPeriod = tx.periodId === activePeriod.id;
       const matchType = type ? tx.type === type : true;
-      return matchProject && matchPeriod && matchType;
+      return matchType;
     });
   };
 
   const login = (u: string, p: string) => {
+    // Keep simple login for now (this would typically call an API)
     if ((u === "admin" && p === "admin") || (u === "partner" && p === "partner")) {
       setUser({ username: u, role: u === "admin" ? "admin" : "partner" });
       return true;
@@ -198,11 +335,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePartner = (id: Partner, data: Partial<PartnerProfile>) => {
-    setPartners(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+    updatePartnerMutation.mutate({ id, data });
   };
 
   const getPartnerName = (id: Partner) => {
     return partners.find(p => p.id === id)?.displayName || id;
+  };
+
+  const addNotification = (txName: string) => {
+    // Notifications are now auto-created by the backend when transactions are created
+    // This is kept for compatibility but doesn't need to do anything
   };
 
   return (
@@ -224,7 +366,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addNotification,
         partners,
         updatePartner,
-        getPartnerName
+        getPartnerName,
+        isLoadingProjects,
+        isLoadingPeriods,
+        isLoadingTransactions,
+        isLoadingPartners,
+        isLoadingNotifications,
+        projects,
+        periods,
       }}
     >
       {children}
