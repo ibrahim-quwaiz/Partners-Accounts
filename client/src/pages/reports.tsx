@@ -42,8 +42,16 @@ export default function ReportsPage() {
 
   const { data: allTransactions = [], isLoading } = useQuery<TransactionFromAPI[]>({
     queryKey: isAllPeriods 
-      ? ["/api/projects", activeProject?.id, "transactions"]
-      : ["/api/periods", selectedPeriod, "transactions"],
+      ? ["reports", "transactions", "all", activeProject?.id]
+      : ["reports", "transactions", "period", selectedPeriod],
+    queryFn: async () => {
+      const url = isAllPeriods 
+        ? `/api/projects/${activeProject?.id}/transactions`
+        : `/api/periods/${selectedPeriod}/transactions`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+      return res.json();
+    },
     enabled: isAllPeriods ? !!activeProject?.id : (!!selectedPeriod && selectedPeriod !== "all"),
     staleTime: 0,
   });
