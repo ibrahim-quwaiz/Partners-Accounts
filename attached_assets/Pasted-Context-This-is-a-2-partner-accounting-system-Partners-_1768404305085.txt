@@ -1,0 +1,115 @@
+Context:
+This is a 2-partner accounting system.
+Partners are fixed (2 only).
+Transactions are linked to a project_id and period_id.
+The report "كشف حساب الشركاء" is currently incorrect and must be fixed.
+
+DO NOT redesign the UI.
+DO NOT add new features.
+ONLY fix the accounting logic and calculations.
+
+========================
+Report Name:
+Partners Account Statement (كشف حساب الشركاء)
+========================
+
+Inputs:
+- project_id (required)
+- period_id (required, single period only)
+- partners table (2 rows only)
+- periods table (opening balances)
+- expenses, revenues, settlements tables
+
+Partner identification:
+- Use the partners table as the source of truth.
+- Match transactions using the text stored in:
+  - expenses.paid_by
+  - revenues.paid_by
+  - settlements.from_partner
+  - settlements.to_partner
+- Matching must be done using normalized text comparison:
+  trim + remove newlines + collapse spaces.
+- Do NOT assume P1/P2 values.
+- Do NOT hardcode partner names.
+
+========================
+Accounting Rules (MANDATORY)
+========================
+
+Definitions:
+- Positive balance = له (creditor)
+- Negative balance = عليه (debtor)
+
+Opening balances:
+- Partner A opening = periods.p1_balance_start
+- Partner B opening = periods.p2_balance_start
+
+Expenses:
+- If a partner paid an expense → it is CREDIT for him.
+- expenses_paid[partner] = SUM(expenses.amount WHERE paid_by = partner)
+
+Revenues:
+- If a partner received revenue → it is DEBIT for him.
+- revenues_received[partner] = SUM(revenues.amount WHERE paid_by = partner)
+
+Settlements:
+- from_partner = CREDIT
+- to_partner = DEBIT
+
+Net profit:
+- net_profit = total_revenues - total_expenses
+- profit_share = net_profit / 2 (always 50/50)
+
+Final balance formula (MUST be EXACT):
+final_balance =
+  opening_balance
++ expenses_paid
+- revenues_received
++ settlements_paid
+- settlements_received
++ profit_share
+
+========================
+Report Rows (IN THIS ORDER)
+========================
+
+1. رصيد أول المدة
+2. المصروفات المدفوعة (دائن)
+3. الإيرادات المستلمة (مدين)
+4. التسويات المدفوعة (دائن)
+5. التسويات المستلمة (مدين)
+6. نصيب من صافي الربح
+7. الرصيد النهائي للفترة (له / عليه)
+
+========================
+Validation (CRITICAL)
+========================
+
+- final_balance_partner1 + final_balance_partner2 MUST equal 0
+- Allow tolerance of 0.01 for floating point
+- If not balanced:
+  - Show warning in UI
+  - Server MUST block closing the period
+
+========================
+Constraints
+========================
+
+- Do NOT support "all periods"
+- Do NOT include transaction IDs in this report
+- Do NOT include partner shares per transaction
+- Use only the selected period
+- No schema changes
+- No UI refactor
+
+========================
+Output
+========================
+
+1) Fix the report calculations
+2) Ensure partner names appear correctly
+3) Ensure balances are mathematically correct
+4) Ensure client and server logic are identical
+
+If any data is missing or ambiguous:
+STOP and ask before continuing.
