@@ -54,6 +54,7 @@ export interface PartnerProfile {
   id: Partner;
   displayName: string;
   phone: string;
+  email?: string;
 }
 
 // --- Backward compatibility exports (deprecated, use context instead) ---

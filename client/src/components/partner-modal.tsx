@@ -25,6 +25,7 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
     defaultValues: {
       displayName: "",
       phone: "",
+      email: "",
     },
   });
 
@@ -32,6 +33,7 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
     if (partner) {
       setValue("displayName", partner.displayName);
       setValue("phone", partner.phone);
+      setValue("email", partner.email || "");
     }
   }, [partner, setValue]);
 
@@ -57,6 +59,11 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
           <div className="grid gap-2">
             <Label htmlFor="phone">رقم الجوال</Label>
             <Input id="phone" className="text-start" {...register("phone")} />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="email">البريد الإلكتروني</Label>
+            <Input id="email" type="email" className="text-start" dir="ltr" {...register("email")} placeholder="example@email.com" />
           </div>
 
           <DialogFooter className="mt-4 gap-2 sm:gap-0">
