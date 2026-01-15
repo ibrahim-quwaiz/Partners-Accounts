@@ -41,6 +41,7 @@ export default function UsersPage() {
       ...u,
       displayName: partner?.displayName || u.displayName,
       phone: partner?.phone || u.phone,
+      email: partner?.email || u.email,
     };
   });
 
