@@ -89,35 +89,9 @@ export async function registerRoutes(
     }
   });
 
+  // Disabled: Periods are created automatically via close flow only
   app.post("/api/projects/:projectId/periods/open", async (req, res) => {
-    try {
-      const { projectId } = req.params;
-      
-      const existingOpen = await storage.getOpenPeriodForProject(projectId);
-      if (existingOpen) {
-        return res.status(400).json({ error: "يوجد فترة مفتوحة بالفعل لهذا المشروع. أغلقها أولاً قبل فتح فترة جديدة." });
-      }
-      
-      const lastClosed = await storage.getLastClosedPeriod(projectId);
-      const p1BalanceStart = lastClosed?.p1BalanceEnd || "0";
-      const p2BalanceStart = lastClosed?.p2BalanceEnd || "0";
-      
-      const allPeriods = await storage.getPeriodsForProject(projectId);
-      const periodNumber = allPeriods.length + 1;
-      const today = new Date().toISOString().split('T')[0];
-      
-      const period = await storage.createPeriod({
-        projectId,
-        name: `فترة ${periodNumber}`,
-        startDate: today,
-        p1BalanceStart,
-        p2BalanceStart,
-      });
-      
-      res.status(201).json(period);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "فشل في فتح فترة جديدة" });
-    }
+    return res.status(400).json({ error: "لا يمكن فتح فترات يدوياً. يتم إنشاء الفترات تلقائياً عند إقفال الفترة الحالية." });
   });
 
   app.patch("/api/periods/:id/close", async (req, res) => {
@@ -129,30 +103,37 @@ export async function registerRoutes(
     }
   });
 
+  // Disabled: Periods are created automatically via close flow only
   app.post("/api/periods", async (req, res) => {
-    try {
-      const validated = insertPeriodSchema.parse(req.body);
-      const period = await storage.createPeriod(validated);
-      res.status(201).json(period);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Failed to create period" });
-    }
+    return res.status(400).json({ error: "لا يمكن إنشاء فترات يدوياً. يتم إنشاء الفترات تلقائياً." });
   });
 
+  // Disabled: Period status can only be changed via close/name flow
   app.patch("/api/periods/:id/status", async (req, res) => {
+    return res.status(400).json({ error: "لا يمكن تغيير حالة الفترة يدوياً. استخدم إقفال الفترة أو تسميتها." });
+  });
+
+  // Name a PENDING_NAME period and activate it
+  app.patch("/api/periods/:id/name", async (req, res) => {
     try {
-      const { status } = req.body;
-      if (!status || !['ACTIVE', 'CLOSED'].includes(status)) {
-        return res.status(400).json({ error: "Invalid status" });
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: "يجب إدخال اسم للفترة" });
       }
       
-      const period = await storage.updatePeriodStatus(req.params.id, status);
+      const period = await storage.getPeriod(req.params.id);
       if (!period) {
-        return res.status(404).json({ error: "Period not found" });
+        return res.status(404).json({ error: "الفترة غير موجودة" });
       }
-      res.json(period);
+      
+      if (period.status !== 'PENDING_NAME') {
+        return res.status(400).json({ error: "يمكن تسمية الفترات الجديدة فقط" });
+      }
+      
+      const updated = await storage.namePendingPeriod(req.params.id, name.trim());
+      res.json(updated);
     } catch (error: any) {
-      res.status(400).json({ error: error.message || "Failed to update period" });
+      res.status(400).json({ error: error.message || "فشل في تسمية الفترة" });
     }
   });
 
@@ -192,6 +173,16 @@ export async function registerRoutes(
   app.post("/api/transactions", async (req, res) => {
     try {
       const validated = insertTransactionSchema.parse(req.body);
+      
+      // Validate period is ACTIVE
+      const period = await storage.getPeriod(validated.periodId);
+      if (!period) {
+        return res.status(400).json({ error: "الفترة غير موجودة" });
+      }
+      if (period.status !== 'ACTIVE') {
+        return res.status(400).json({ error: "لا يمكن إضافة معاملات إلا للفترات المفتوحة" });
+      }
+      
       const transaction = await storage.createTransaction(validated);
       
       // Auto-create notification for this transaction
@@ -211,10 +202,18 @@ export async function registerRoutes(
 
   app.patch("/api/transactions/:id", async (req, res) => {
     try {
-      const transaction = await storage.updateTransaction(req.params.id, req.body);
-      if (!transaction) {
+      const existingTx = await storage.getTransaction(req.params.id);
+      if (!existingTx) {
         return res.status(404).json({ error: "Transaction not found" });
       }
+      
+      // Validate period is ACTIVE
+      const period = await storage.getPeriod(existingTx.periodId);
+      if (!period || period.status !== 'ACTIVE') {
+        return res.status(400).json({ error: "لا يمكن تعديل معاملات الفترات المغلقة" });
+      }
+      
+      const transaction = await storage.updateTransaction(req.params.id, req.body);
       res.json(transaction);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to update transaction" });
@@ -223,10 +222,18 @@ export async function registerRoutes(
 
   app.delete("/api/transactions/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteTransaction(req.params.id);
-      if (!deleted) {
+      const existingTx = await storage.getTransaction(req.params.id);
+      if (!existingTx) {
         return res.status(404).json({ error: "Transaction not found" });
       }
+      
+      // Validate period is ACTIVE
+      const period = await storage.getPeriod(existingTx.periodId);
+      if (!period || period.status !== 'ACTIVE') {
+        return res.status(400).json({ error: "لا يمكن حذف معاملات الفترات المغلقة" });
+      }
+      
+      const deleted = await storage.deleteTransaction(req.params.id);
       res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to delete transaction" });

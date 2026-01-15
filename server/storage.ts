@@ -41,6 +41,7 @@ export interface IStorage {
   getOpenPeriodForProject(projectId: string): Promise<Period | undefined>;
   closePeriodWithBalances(id: string): Promise<Period>;
   resetPeriodsForProject(projectId: string): Promise<Period>;
+  namePendingPeriod(id: string, name: string): Promise<Period>;
   
   // Users
   getUserProfile(id: string): Promise<UserProfile | undefined>;
@@ -217,16 +218,12 @@ export class DatabaseStorage implements IStorage {
     });
 
     // Auto-create next period with previous end balances as start balances
-    // Count periods BEFORE inserting to get correct numbering
-    const existingPeriodCount = await db.select().from(periods)
-      .where(eq(periods.projectId, period.projectId));
-    const periodNumber = existingPeriodCount.length + 1;
-    
+    // Status is PENDING_NAME until user provides a name
     const [newPeriod] = await db.insert(periods).values({
       projectId: period.projectId,
-      name: `فترة ${periodNumber}`,
+      name: '',
       startDate: today,
-      status: 'ACTIVE',
+      status: 'PENDING_NAME',
       p1BalanceStart: p1End.toFixed(2),
       p2BalanceStart: p2End.toFixed(2),
     }).returning();
@@ -273,6 +270,31 @@ export class DatabaseStorage implements IStorage {
     });
 
     return newPeriod;
+  }
+
+  async namePendingPeriod(id: string, name: string): Promise<Period> {
+    const [updated] = await db.update(periods)
+      .set({
+        name,
+        status: 'ACTIVE',
+        openedAt: new Date(),
+      })
+      .where(and(eq(periods.id, id), eq(periods.status, 'PENDING_NAME')))
+      .returning();
+
+    if (!updated) {
+      throw new Error("الفترة غير موجودة أو ليست في حالة انتظار التسمية");
+    }
+
+    await this.createEventLog({
+      projectId: updated.projectId,
+      periodId: id,
+      eventType: 'PERIOD_OPENED',
+      message: `تم فتح فترة جديدة: ${name}`,
+      metadata: null,
+    });
+
+    return updated;
   }
 
   // Users

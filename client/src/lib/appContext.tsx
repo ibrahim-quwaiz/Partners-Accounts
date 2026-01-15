@@ -14,8 +14,12 @@ export interface Period {
   id: string;
   name: string; // e.g., "Jan 2025"
   startDate: Date;
-  endDate: Date;
-  status?: string;
+  endDate: Date | null;
+  status: string; // ACTIVE, CLOSED, PENDING_NAME
+  p1BalanceStart?: string;
+  p2BalanceStart?: string;
+  p1BalanceEnd?: string | null;
+  p2BalanceEnd?: string | null;
 }
 
 export interface Transaction {
@@ -77,7 +81,7 @@ function parsePeriod(period: any): Period {
   return {
     ...period,
     startDate: parseDate(period.startDate),
-    endDate: parseDate(period.endDate),
+    endDate: period.endDate ? parseDate(period.endDate) : null,
   };
 }
 

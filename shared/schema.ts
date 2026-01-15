@@ -15,7 +15,7 @@ import { z } from "zod";
 // =====================================================
 // ENUMS
 // =====================================================
-export const periodStatusEnum = pgEnum('period_status', ['ACTIVE', 'CLOSED']);
+export const periodStatusEnum = pgEnum('period_status', ['ACTIVE', 'CLOSED', 'PENDING_NAME']);
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'TX_ONLY']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['EXPENSE', 'REVENUE', 'SETTLEMENT']);
 export const partnerIdEnum = pgEnum('partner_id', ['P1', 'P2']);

@@ -20,9 +20,10 @@ export default function TransactionsPage() {
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
   const openPeriod = periods.find(p => p.status === "ACTIVE");
+  const pendingNamePeriod = periods.find(p => p.status === "PENDING_NAME");
 
   const handleAdd = () => {
-    if (!openPeriod) return;
+    if (!openPeriod || pendingNamePeriod) return;
     setEditingTx(null);
     setIsModalOpen(true);
   };
@@ -79,6 +80,23 @@ export default function TransactionsPage() {
     return (
       <div className="flex items-center justify-center h-32">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (pendingNamePeriod) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">المعاملات</h1>
+          <p className="text-muted-foreground">إدارة المصروفات، الإيرادات، والتسويات</p>
+        </div>
+        <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-700">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            يوجد فترة جديدة بانتظار التسمية. الرجاء الانتقال إلى صفحة الفترات لتسميتها أولاً.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
