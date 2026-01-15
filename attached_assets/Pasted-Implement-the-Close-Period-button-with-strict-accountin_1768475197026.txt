@@ -1,0 +1,92 @@
+Implement the “Close Period” button with strict accounting logic. Do NOT change unrelated UI or features.
+
+Context:
+	•	DB table: periods(period_id, project_id, period_name, start_date, end_date, status, p1_balance_start, p2_balance_start, p1_balance_end, p2_balance_end)
+	•	Period statuses: “Open”, “Closed”
+	•	We have two partners only.
+	•	Transactions tables: expenses, revenues, settlements (each row is tied to project_id + period_id)
+	•	Closing period must compute final balances and ensure they sum to zero.
+
+Requirements:
+	1.	UI Behavior (Periods page)
+
+	•	Add a button: “إغلاق الفترة” visible ONLY when the selected period.status === “Open”.
+	•	On click:
+	•	Call server endpoint POST /api/periods/:period_id/close (or equivalent).
+	•	Show loading state.
+	•	If success: refresh periods list and set activePeriod to the newly opened period.
+	•	If error: show user-friendly Arabic error message.
+
+	2.	Server Behavior (Single source of truth)
+Implement server endpoint that performs the close in one atomic operation (transaction):
+
+STEP A: Validate
+	•	Fetch period by period_id.
+	•	Ensure period.status === “Open”
+	•	Ensure this is the ONLY open period for that project_id (optional but recommended).
+	•	Load two partners and determine partner1 and partner2 consistently (same ordering everywhere).
+
+STEP B: Compute final balances for that period ONLY (filter by project_id and period_id)
+	•	totalExpenses = sum(expenses.amount)
+	•	totalRevenues = sum(revenues.amount)
+	•	netProfit = totalRevenues - totalExpenses
+	•	shareProfit = netProfit / 2
+
+Compute per partner:
+	•	expensesPaid(P) = sum(expenses.amount where paid_by == partnerNameOrKeyFor(P))
+	•	revenuesReceived(P) = sum(revenues.amount where paid_by == partnerNameOrKeyFor(P))
+	•	settlementsPaid(P) = sum(settlements.amount where from_partner == partnerNameOrKeyFor(P))
+	•	settlementsReceived(P) = sum(settlements.amount where to_partner == partnerNameOrKeyFor(P))
+
+Final formula:
+finalBalance(P) =
+openingBalance(P)
+	•	expensesPaid(P)
+
+	•	revenuesReceived(P)
+
+	•	settlementsPaid(P)
+
+	•	settlementsReceived(P)
+
+	•	shareProfit
+
+Where openingBalance(P) comes from periods.p1_balance_start / p2_balance_start.
+
+STEP C: Balance check
+	•	Assert abs(finalBalance1 + finalBalance2) <= 0.01
+	•	If not balanced: throw error “لا يمكن إغلاق الفترة لوجود خلل في توازن الأرصدة.”
+
+STEP D: Close current period
+	•	Update current period:
+	•	status=“Closed”
+	•	end_date = NOW()
+	•	p1_balance_end = finalBalance1
+	•	p2_balance_end = finalBalance2
+
+STEP E: Auto-create next period (same project)
+	•	Insert a new period row for the same project_id with:
+	•	status = “PendingName” (or “Draft”) so user must name it
+	•	start_date = NOW()
+	•	end_date = NULL
+	•	p1_balance_start = finalBalance1
+	•	p2_balance_start = finalBalance2
+	•	period_name = NULL (or empty)
+
+Return response:
+	•	{ ok: true, closedPeriodId, newPeriodId }
+
+	3.	Enforce “must name new period”
+
+	•	After successful close, show a modal forcing period_name entry for the new period.
+	•	The user cannot add/edit/delete transactions until period_name is saved and new period status becomes “Open”.
+	•	Add endpoint PATCH /api/periods/:period_id to set period_name and set status=“Open” (only if status is PendingName/Draft).
+
+	4.	Prevent edits on closed periods
+
+	•	Ensure API rejects add/edit/delete transactions when period.status !== “Open” (server-side, not UI only).
+
+Deliverables:
+	•	Server routes + storage/supabase implementation
+	•	UI button wiring + modal for naming new period
+	•	Minimal changes only, keep existing structure
