@@ -139,6 +139,7 @@ export const partners = pgTable("partners", {
   id: partnerIdEnum("id").primaryKey(),
   displayName: text("display_name").notNull(),
   phone: text("phone").notNull(),
+  email: text("email"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

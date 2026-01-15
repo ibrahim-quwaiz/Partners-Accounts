@@ -55,14 +55,38 @@ export default function NotificationsPage() {
     enabled: true,
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: NotifStatus }) => {
-      const res = await apiRequest("PATCH", `/api/notifications/${id}/status`, { status });
+  const sendMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/notifications/${id}/send`, {});
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      
+      if (data.success) {
+        const channels = [];
+        if (data.emailSent) channels.push("البريد الإلكتروني");
+        if (data.whatsappSent) channels.push("الواتساب");
+        
+        toast({
+          title: "تم الإرسال بنجاح",
+          description: `تم الإرسال عبر: ${channels.join(" و ")}`,
+        });
+      } else {
+        toast({
+          title: "فشل الإرسال",
+          description: data.error || "حدث خطأ أثناء الإرسال",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "فشل الإرسال",
+        description: error.message || "حدث خطأ أثناء الإرسال",
+        variant: "destructive",
+      });
     },
   });
 
@@ -71,23 +95,7 @@ export default function NotificationsPage() {
     : notifications.filter(n => n.transaction?.periodId === selectedPeriod);
 
   const handleSend = (notif: NotificationFromAPI) => {
-    const success = Math.random() > 0.3;
-    const newStatus: NotifStatus = success ? "SENT" : "FAILED";
-    
-    updateStatusMutation.mutate(
-      { id: notif.id, status: newStatus },
-      {
-        onSuccess: () => {
-          toast({
-            title: success ? "تم الإرسال بنجاح" : "فشل الإرسال",
-            description: success 
-              ? `تم إرسال الإشعار لـ "${notif.transaction?.description || 'المعاملة'}"` 
-              : "حدث خطأ أثناء الإرسال، يرجى المحاولة مرة أخرى",
-            variant: success ? "default" : "destructive",
-          });
-        },
-      }
-    );
+    sendMutation.mutate(notif.id);
   };
 
   const getPeriodName = (periodId: string | undefined) => {
@@ -206,9 +214,9 @@ export default function NotificationsPage() {
                       variant={row.status === "PENDING" ? "default" : "outline"}
                       onClick={() => handleSend(row)}
                       className="gap-2"
-                      disabled={row.status === "SENT" || updateStatusMutation.isPending}
+                      disabled={row.status === "SENT" || sendMutation.isPending}
                     >
-                      {updateStatusMutation.isPending ? (
+                      {sendMutation.isPending ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Send className="h-3.5 w-3.5" />

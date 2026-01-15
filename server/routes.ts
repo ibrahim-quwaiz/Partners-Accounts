@@ -269,6 +269,99 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/notifications/:id/send", async (req, res) => {
+    try {
+      const { sendNotification } = await import('./services/notifications');
+      
+      const allNotifs = await storage.getAllNotifications();
+      const notification = allNotifs.find(n => n.id === req.params.id);
+      if (!notification) {
+        return res.status(404).json({ error: "الإشعار غير موجود" });
+      }
+      
+      const transaction = await storage.getTransaction(notification.transactionId);
+      if (!transaction) {
+        return res.status(404).json({ error: "المعاملة غير موجودة" });
+      }
+
+      const partners = await storage.getAllPartners();
+      
+      let senderName: string;
+      let receiverPartner: typeof partners[0] | undefined;
+      
+      if (transaction.type === 'SETTLEMENT') {
+        const sender = partners.find(p => p.id === transaction.fromPartner);
+        receiverPartner = partners.find(p => p.id === transaction.toPartner);
+        senderName = sender?.displayName || 'غير محدد';
+      } else {
+        const payer = partners.find(p => p.id === transaction.paidBy);
+        receiverPartner = partners.find(p => p.id !== transaction.paidBy);
+        senderName = payer?.displayName || 'غير محدد';
+      }
+      
+      if (!receiverPartner) {
+        return res.status(400).json({ error: "بيانات الشركاء غير مكتملة" });
+      }
+
+      const typeAr = transaction.type === 'EXPENSE' ? 'مصروف' : 
+                     transaction.type === 'REVENUE' ? 'إيراد' : 'تسوية';
+      
+      const roleLabel = transaction.type === 'SETTLEMENT' ? 'المُرسل' : 'المسدد';
+      
+      const messageBody = `📢 إشعار معاملة جديدة
+
+النوع: ${typeAr}
+الوصف: ${transaction.description}
+المبلغ: ${transaction.amount} ر.س
+${roleLabel}: ${senderName}
+التاريخ: ${transaction.date}`;
+
+      const emailParams = receiverPartner.email ? {
+        to: receiverPartner.email,
+        subject: `إشعار معاملة: ${transaction.description}`,
+        text: messageBody,
+        html: `<div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>إشعار معاملة جديدة</h2>
+          <p><strong>النوع:</strong> ${typeAr}</p>
+          <p><strong>الوصف:</strong> ${transaction.description}</p>
+          <p><strong>المبلغ:</strong> ${transaction.amount} ر.س</p>
+          <p><strong>${roleLabel}:</strong> ${senderName}</p>
+          <p><strong>التاريخ:</strong> ${transaction.date}</p>
+        </div>`,
+      } : null;
+
+      const whatsappParams = receiverPartner.phone ? {
+        to: receiverPartner.phone,
+        body: messageBody,
+      } : null;
+
+      const result = await sendNotification(emailParams, whatsappParams);
+      
+      const emailSentAt = result.emailSent ? new Date() : null;
+      const whatsappSentAt = result.whatsappSent ? new Date() : null;
+      const newStatus = (result.emailSent || result.whatsappSent) ? 'SENT' : 'FAILED';
+      const errorMsg = result.emailError || result.whatsappError || null;
+      
+      await storage.updateNotificationWithDetails(
+        req.params.id, 
+        newStatus, 
+        emailSentAt, 
+        whatsappSentAt, 
+        errorMsg
+      );
+
+      res.json({
+        success: result.emailSent || result.whatsappSent,
+        emailSent: result.emailSent,
+        whatsappSent: result.whatsappSent,
+        error: errorMsg,
+      });
+    } catch (error: any) {
+      console.error('Send notification error:', error);
+      res.status(500).json({ error: error.message || "فشل في إرسال الإشعار" });
+    }
+  });
+
   // =====================================================
   // EVENT LOGS
   // =====================================================

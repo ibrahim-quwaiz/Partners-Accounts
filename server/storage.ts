@@ -63,6 +63,7 @@ export interface IStorage {
   getAllNotifications(): Promise<Notification[]>;
   createNotification(notif: InsertNotification): Promise<Notification>;
   updateNotificationStatus(id: string, status: 'PENDING' | 'SENT' | 'FAILED', error?: string): Promise<Notification | undefined>;
+  updateNotificationWithDetails(id: string, status: 'PENDING' | 'SENT' | 'FAILED', sentEmailAt: Date | null, sentWhatsappAt: Date | null, lastError: string | null): Promise<Notification | undefined>;
   
   // Event Logs
   getEventLogsForProject(projectId: string): Promise<EventLog[]>;
@@ -464,6 +465,49 @@ export class DatabaseStorage implements IStorage {
       await this.createEventLog({
         eventType: 'NOTIF_FAILED',
         message: `فشل إرسال إشعار: ${error}`,
+        metadata: null,
+        projectId: null,
+        periodId: null,
+        transactionId: null,
+        userId: null,
+      });
+    }
+
+    return updated;
+  }
+
+  async updateNotificationWithDetails(
+    id: string,
+    status: 'PENDING' | 'SENT' | 'FAILED',
+    sentEmailAt: Date | null,
+    sentWhatsappAt: Date | null,
+    lastError: string | null
+  ): Promise<Notification | undefined> {
+    const updates: any = { status };
+    if (sentEmailAt) updates.sentEmailAt = sentEmailAt;
+    if (sentWhatsappAt) updates.sentWhatsappAt = sentWhatsappAt;
+    if (lastError) updates.lastError = lastError;
+
+    const [updated] = await db.update(notifications)
+      .set(updates)
+      .where(eq(notifications.id, id))
+      .returning();
+
+    // Log event
+    if (status === 'SENT') {
+      await this.createEventLog({
+        eventType: 'NOTIF_SENT',
+        message: `تم إرسال إشعار`,
+        metadata: null,
+        projectId: null,
+        periodId: null,
+        transactionId: null,
+        userId: null,
+      });
+    } else if (status === 'FAILED') {
+      await this.createEventLog({
+        eventType: 'NOTIF_FAILED',
+        message: `فشل إرسال إشعار: ${lastError}`,
         metadata: null,
         projectId: null,
         periodId: null,
