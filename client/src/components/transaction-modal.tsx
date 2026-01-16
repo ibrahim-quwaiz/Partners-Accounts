@@ -52,7 +52,7 @@ export function TransactionModal({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: "",
-      amount: 0,
+      amount: "" as any,
       date: format(new Date(), "yyyy-MM-dd"),
       paidBy: "P1",
       fromPartner: "P1",
@@ -71,7 +71,7 @@ export function TransactionModal({
     } else {
       form.reset({
         description: "",
-        amount: 0,
+        amount: "" as any,
         date: format(new Date(), "yyyy-MM-dd"),
         paidBy: "P1",
         fromPartner: "P1",
@@ -150,6 +150,7 @@ export function TransactionModal({
               id="amount"
               type="number"
               step="0.01"
+              placeholder="0.00"
               {...form.register("amount")}
             />
             {form.formState.errors.amount && (
