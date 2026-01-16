@@ -96,6 +96,10 @@ export default function ReportsPage() {
   const netProfit = totalRevenues - totalExpenses;
   const profitShare = netProfit / 2;
 
+  const selectedPeriodData = useMemo(() => {
+    return periods.find(p => p.id === selectedPeriod);
+  }, [periods, selectedPeriod]);
+
   const partnerReport = useMemo(() => {
     const report: Record<string, {
       id: string;
@@ -110,10 +114,19 @@ export default function ReportsPage() {
     }> = {};
 
     partners.forEach(partner => {
+      let openingBalance = 0;
+      if (selectedPeriodData) {
+        if (partner.id === 'P1' && selectedPeriodData.p1BalanceStart) {
+          openingBalance = parseFloat(selectedPeriodData.p1BalanceStart);
+        } else if (partner.id === 'P2' && selectedPeriodData.p2BalanceStart) {
+          openingBalance = parseFloat(selectedPeriodData.p2BalanceStart);
+        }
+      }
+      
       report[partner.id] = {
         id: partner.id,
         name: partner.displayName,
-        openingBalance: 0,
+        openingBalance: openingBalance,
         expensesPaid: 0,
         revenuesReceived: 0,
         settlementsPaid: 0,
@@ -157,7 +170,7 @@ export default function ReportsPage() {
     });
 
     return Object.values(report);
-  }, [expenses, revenues, settlements, profitShare, partners]);
+  }, [expenses, revenues, settlements, profitShare, partners, selectedPeriodData]);
 
   const balanceSum = useMemo(() => {
     return partnerReport.reduce((sum, p) => sum + p.closingBalance, 0);
