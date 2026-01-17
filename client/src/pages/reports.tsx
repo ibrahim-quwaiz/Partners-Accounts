@@ -17,9 +17,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Wallet, Users, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Users, Loader2, CheckCircle2, AlertTriangle, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useApp, Partner } from "@/lib/appContext";
 import { format } from "date-fns";
+import { useRef } from "react";
 
 interface TransactionFromAPI {
   id: string;
@@ -37,6 +39,163 @@ interface TransactionFromAPI {
 export default function ReportsPage() {
   const { activeProject, periods, partners, getPartnerName } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState<string>("");
+  
+  const expensesRef = useRef<HTMLDivElement>(null);
+  const revenuesRef = useRef<HTMLDivElement>(null);
+  const settlementsRef = useRef<HTMLDivElement>(null);
+  const partnersRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = (ref: React.RefObject<HTMLDivElement | null>, title: string) => {
+    if (!ref.current) return;
+    
+    const periodName = selectedPeriodData?.name || '';
+    const projectName = activeProject?.name || '';
+    const printDate = format(new Date(), "yyyy/MM/dd");
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>${title}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+          
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          
+          body {
+            font-family: 'Cairo', sans-serif;
+            direction: rtl;
+            padding: 40px;
+            background: white;
+            color: #1a1a1a;
+          }
+          
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #3b82f6;
+          }
+          
+          .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 8px;
+          }
+          
+          .header .meta {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            font-size: 14px;
+            color: #64748b;
+          }
+          
+          .header .meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+          }
+          
+          th {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 12px 16px;
+            text-align: right;
+            font-weight: 600;
+            font-size: 14px;
+          }
+          
+          th:last-child {
+            text-align: left;
+          }
+          
+          td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+          }
+          
+          td:last-child {
+            text-align: left;
+            font-weight: 600;
+          }
+          
+          tr:nth-child(even) {
+            background-color: #f8fafc;
+          }
+          
+          tr:hover {
+            background-color: #f1f5f9;
+          }
+          
+          .total-row {
+            background: #f0f9ff !important;
+            font-weight: 700;
+          }
+          
+          .total-row td {
+            border-top: 2px solid #3b82f6;
+            padding: 16px;
+          }
+          
+          .positive { color: #16a34a; }
+          .negative { color: #dc2626; }
+          
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+          }
+          
+          @media print {
+            body { padding: 20px; }
+            .header { margin-bottom: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${title}</h1>
+          <div class="meta">
+            <span>المشروع: ${projectName}</span>
+            <span>الفترة: ${periodName}</span>
+            <span>تاريخ الطباعة: ${printDate}</span>
+          </div>
+        </div>
+        ${ref.current.innerHTML}
+        <div class="footer">
+          نظام محاسبة الشراكات - تم إنشاء هذا التقرير آلياً
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
 
   useEffect(() => {
     if (periods.length > 0 && !selectedPeriod) {
@@ -266,8 +425,20 @@ export default function ReportsPage() {
               </TabsList>
             </div>
 
-            <TabsContent value="expenses" className="mt-6">
-              <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
+            <TabsContent value="expenses" className="mt-6 space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(expensesRef, "تقرير المصروفات")}
+                  className="gap-2"
+                  data-testid="print-expenses"
+                >
+                  <Printer className="h-4 w-4" />
+                  طباعة
+                </Button>
+              </div>
+              <div ref={expensesRef} className="rounded-md border bg-card overflow-x-auto" dir="rtl">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -299,8 +470,20 @@ export default function ReportsPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="revenues" className="mt-6">
-              <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
+            <TabsContent value="revenues" className="mt-6 space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(revenuesRef, "تقرير الإيرادات")}
+                  className="gap-2"
+                  data-testid="print-revenues"
+                >
+                  <Printer className="h-4 w-4" />
+                  طباعة
+                </Button>
+              </div>
+              <div ref={revenuesRef} className="rounded-md border bg-card overflow-x-auto" dir="rtl">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -332,8 +515,20 @@ export default function ReportsPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="settlements" className="mt-6">
-              <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
+            <TabsContent value="settlements" className="mt-6 space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(settlementsRef, "تقرير التسويات")}
+                  className="gap-2"
+                  data-testid="print-settlements"
+                >
+                  <Printer className="h-4 w-4" />
+                  طباعة
+                </Button>
+              </div>
+              <div ref={settlementsRef} className="rounded-md border bg-card overflow-x-auto" dir="rtl">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -368,7 +563,19 @@ export default function ReportsPage() {
             </TabsContent>
 
             <TabsContent value="partners" className="mt-6 space-y-4">
-              <div className="rounded-md border bg-card overflow-x-auto" dir="rtl">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(partnersRef, "تقرير الشركاء")}
+                  className="gap-2"
+                  data-testid="print-partners"
+                >
+                  <Printer className="h-4 w-4" />
+                  طباعة
+                </Button>
+              </div>
+              <div ref={partnersRef} className="rounded-md border bg-card overflow-x-auto" dir="rtl">
                 <Table>
                   <TableHeader>
                     <TableRow>
