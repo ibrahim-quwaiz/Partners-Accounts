@@ -91,7 +91,47 @@ async function migrate() {
     `, [hashedPassword]);
     console.log('P2 (nahed) updated with TX_ONLY role');
     
-    // 6. Verify partners
+    // 6. Update event_logs table - fix partner_id column type
+    console.log('\nUpdating event_logs table...');
+    const eventLogsColumns = await client.query(`
+      SELECT column_name, data_type, udt_name
+      FROM information_schema.columns 
+      WHERE table_name = 'event_logs'
+    `);
+    const eventLogsCols = eventLogsColumns.rows;
+    const partnerIdCol = eventLogsCols.find(c => c.column_name === 'partner_id');
+    const userIdCol = eventLogsCols.find(c => c.column_name === 'user_id');
+    
+    if (userIdCol && !partnerIdCol) {
+      console.log('Dropping old user_id column and adding partner_id...');
+      await client.query('ALTER TABLE event_logs DROP COLUMN user_id');
+      await client.query('ALTER TABLE event_logs ADD COLUMN partner_id partner_id');
+    } else if (partnerIdCol && partnerIdCol.udt_name !== 'partner_id') {
+      console.log('Fixing partner_id column type (current: ' + partnerIdCol.udt_name + ')...');
+      await client.query('ALTER TABLE event_logs DROP COLUMN partner_id');
+      await client.query('ALTER TABLE event_logs ADD COLUMN partner_id partner_id');
+    } else if (!partnerIdCol) {
+      console.log('Adding partner_id column...');
+      await client.query('ALTER TABLE event_logs ADD COLUMN partner_id partner_id');
+    } else {
+      console.log('partner_id column already correct type');
+    }
+    
+    // 7. Update transactions table - add created_by column
+    console.log('\nUpdating transactions table...');
+    const txColumns = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'transactions'
+    `);
+    const txColNames = txColumns.rows.map(r => r.column_name);
+    
+    if (!txColNames.includes('created_by')) {
+      console.log('Adding created_by column...');
+      await client.query('ALTER TABLE transactions ADD COLUMN created_by partner_id');
+    }
+    
+    // 8. Verify partners
     console.log('\nVerifying partners table:');
     const partners = await client.query('SELECT id, display_name, username, role FROM partners');
     console.table(partners.rows);
