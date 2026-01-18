@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,6 +12,8 @@ import PeriodsPage from "@/pages/periods";
 import ReportsPage from "@/pages/reports";
 import EventLogPage from "@/pages/event-log";
 import ProjectSelectPage from "@/pages/project-select";
+import ResetPasswordPage from "@/pages/reset-password";
+import SettingsPage from "@/pages/settings";
 import { Layout } from "@/components/layout";
 import { AppProvider, useApp } from "@/lib/appContext";
 import { LoginModal } from "@/components/login-modal";
@@ -19,6 +21,12 @@ import { LoginModal } from "@/components/login-modal";
 function AppContent() {
   const { user, setActiveProject, projects } = useApp();
   const [projectSelected, setProjectSelected] = useState(false);
+  const [location] = useLocation();
+
+  // Handle reset password page (accessible without login)
+  if (location.startsWith("/reset-password")) {
+    return <ResetPasswordPage />;
+  }
 
   // Show login first
   if (!user) {
@@ -55,17 +63,7 @@ function AppContent() {
         <Route path="/event-log" component={EventLogPage} />
         <Route path="/users" component={UsersPage} />
         
-        <Route path="/settings">
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-             <div className="p-4 rounded-full bg-muted">
-               <span className="text-4xl">⚙️</span>
-             </div>
-             <div>
-               <h2 className="text-xl font-semibold">الإعدادات</h2>
-               <p className="text-muted-foreground">منطقة تكوين النظام (قريباً)</p>
-             </div>
-          </div>
-        </Route>
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

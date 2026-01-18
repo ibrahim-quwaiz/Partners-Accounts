@@ -97,6 +97,14 @@ function parseNotification(notif: any): NotificationLog {
 }
 
 // --- Context ---
+export interface AuthUser {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  role: "ADMIN" | "TX_ONLY";
+}
+
 interface AppContextType {
   activeProject: Project | null;
   setActiveProject: (project: Project) => void;
@@ -109,9 +117,10 @@ interface AppContextType {
   getFilteredTransactions: (type?: Transaction["type"]) => Transaction[];
   
   // Auth
-  user: User | null;
-  login: (username: string, password: string) => boolean;
+  user: AuthUser | null;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  isLoggingIn: boolean;
 
   // Notifications
   notifications: NotificationLog[];
@@ -140,7 +149,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [activeProject, setActiveProjectState] = useState<Project | null>(null);
   const [activePeriod, setActivePeriodState] = useState<Period | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // =====================================================
   // QUERIES
@@ -316,13 +326,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const login = (u: string, p: string) => {
-    // Keep simple login for now (this would typically call an API)
-    if ((u === "admin" && p === "admin") || (u === "partner" && p === "partner")) {
-      setUser({ username: u, role: u === "admin" ? "admin" : "partner" });
-      return true;
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    setIsLoggingIn(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/login", { username, password });
+      const data = await res.json();
+      
+      if (res.ok && data.user) {
+        setUser({
+          id: data.user.id,
+          username: data.user.username,
+          displayName: data.user.displayName,
+          email: data.user.email,
+          role: data.user.role,
+        });
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "فشل تسجيل الدخول" };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message || "حدث خطأ أثناء تسجيل الدخول" };
+    } finally {
+      setIsLoggingIn(false);
     }
-    return false;
   };
 
   const logout = () => {
@@ -357,6 +383,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         user,
         login,
         logout,
+        isLoggingIn,
         notifications,
         addNotification,
         partners,
