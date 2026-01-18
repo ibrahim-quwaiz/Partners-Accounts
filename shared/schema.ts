@@ -144,6 +144,16 @@ export const partners = pgTable("partners", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Password Reset Tokens
+export const resetTokens = pgTable("reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: 'cascade' }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // =====================================================
 // RELATIONS
 // =====================================================
@@ -293,3 +303,12 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({
 });
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
 export type Partner = typeof partners.$inferSelect;
+
+// Reset Tokens
+export const insertResetTokenSchema = createInsertSchema(resetTokens).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+});
+export type InsertResetToken = z.infer<typeof insertResetTokenSchema>;
+export type ResetToken = typeof resetTokens.$inferSelect;
