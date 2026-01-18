@@ -72,19 +72,6 @@ export const periods = pgTable("periods", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// User Profiles
-export const userProfiles = pgTable("user_profiles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  displayName: text("display_name").notNull(),
-  email: text("email"),
-  phone: text("phone"),
-  role: userRoleEnum("role").default('TX_ONLY').notNull(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Transactions
 export const transactions = pgTable("transactions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -97,7 +84,7 @@ export const transactions = pgTable("transactions", {
   paidBy: partnerIdEnum("paid_by"),
   fromPartner: partnerIdEnum("from_partner"),
   toPartner: partnerIdEnum("to_partner"),
-  createdBy: uuid("created_by").references(() => userProfiles.id),
+  createdBy: partnerIdEnum("created_by").references(() => partners.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -120,7 +107,7 @@ export const eventLogs = pgTable("event_logs", {
   projectId: uuid("project_id").references(() => projects.id, { onDelete: 'set null' }),
   periodId: uuid("period_id").references(() => periods.id, { onDelete: 'set null' }),
   transactionId: uuid("transaction_id").references(() => transactions.id, { onDelete: 'set null' }),
-  userId: uuid("user_id").references(() => userProfiles.id, { onDelete: 'set null' }),
+  partnerId: partnerIdEnum("partner_id"),
   eventType: eventTypeEnum("event_type").notNull(),
   message: text("message").notNull(),
   metadata: text("metadata"),
@@ -142,12 +129,15 @@ export const periodPartnerBalances = pgTable("period_partner_balances", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Partners (for profile management)
+// Partners (for profile management and authentication)
 export const partners = pgTable("partners", {
   id: partnerIdEnum("id").primaryKey(),
   displayName: text("display_name").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
+  username: text("username").unique(),
+  password: text("password"),
+  role: userRoleEnum("role").default('TX_ONLY').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -155,7 +145,7 @@ export const partners = pgTable("partners", {
 // Password Reset Tokens
 export const resetTokens = pgTable("reset_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: 'cascade' }),
+  partnerId: partnerIdEnum("partner_id").notNull().references(() => partners.id, { onDelete: 'cascade' }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
@@ -191,9 +181,9 @@ export const transactionsRelations = relations(transactions, ({ one, many }) => 
     fields: [transactions.periodId],
     references: [periods.id],
   }),
-  createdByUser: one(userProfiles, {
+  createdByPartner: one(partners, {
     fields: [transactions.createdBy],
-    references: [userProfiles.id],
+    references: [partners.id],
   }),
   notifications: many(notifications),
   eventLogs: many(eventLogs),
@@ -219,9 +209,9 @@ export const eventLogsRelations = relations(eventLogs, ({ one }) => ({
     fields: [eventLogs.transactionId],
     references: [transactions.id],
   }),
-  user: one(userProfiles, {
-    fields: [eventLogs.userId],
-    references: [userProfiles.id],
+  partner: one(partners, {
+    fields: [eventLogs.partnerId],
+    references: [partners.id],
   }),
 }));
 
@@ -259,15 +249,6 @@ export const insertPeriodSchema = createInsertSchema(periods).omit({
 });
 export type InsertPeriod = z.infer<typeof insertPeriodSchema>;
 export type Period = typeof periods.$inferSelect;
-
-// User Profiles
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
-export type UserProfile = typeof userProfiles.$inferSelect;
 
 // Transactions
 export const insertTransactionSchema = createInsertSchema(transactions).omit({

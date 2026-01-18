@@ -6,7 +6,6 @@ import crypto from "crypto";
 import { 
   insertProjectSchema,
   insertPeriodSchema,
-  insertUserProfileSchema,
   insertTransactionSchema,
   insertNotificationSchema,
   insertEventLogSchema,
@@ -433,35 +432,6 @@ ${roleLabel}: ${senderName}
   });
 
   // =====================================================
-  // USERS
-  // =====================================================
-  app.get("/api/users", async (req, res) => {
-    try {
-      const users = await storage.getAllUsers();
-      // Don't send passwords to frontend
-      const sanitized = users.map(({ password, ...user }) => user);
-      res.json(sanitized);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  });
-
-  app.patch("/api/users/:id", async (req, res) => {
-    try {
-      // Don't allow password updates through this endpoint
-      const { password, ...updates } = req.body;
-      const user = await storage.updateUserProfile(req.params.id, updates);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const { password: _, ...sanitized } = user;
-      res.json(sanitized);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Failed to update user" });
-    }
-  });
-
-  // =====================================================
   // AUTHENTICATION
   // =====================================================
   
@@ -474,23 +444,23 @@ ${roleLabel}: ${senderName}
         return res.status(400).json({ error: "يرجى إدخال اسم المستخدم وكلمة السر" });
       }
       
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
+      const partner = await storage.getPartnerByUsername(username);
+      if (!partner || !partner.password) {
         return res.status(401).json({ error: "اسم المستخدم أو كلمة السر غير صحيحة" });
       }
       
       // Check if password is hashed (starts with $2b$)
-      const isHashed = user.password.startsWith('$2b$');
+      const isHashed = partner.password.startsWith('$2b$');
       let isValid = false;
       
       if (isHashed) {
-        isValid = await bcrypt.compare(password, user.password);
+        isValid = await bcrypt.compare(password, partner.password);
       } else {
         // Legacy plain text password - migrate to hash
-        isValid = password === user.password;
+        isValid = password === partner.password;
         if (isValid) {
           const hashedPassword = await bcrypt.hash(password, 10);
-          await storage.updateUserProfile(user.id, { password: hashedPassword });
+          await storage.updatePartner(partner.id, { password: hashedPassword });
         }
       }
       
@@ -500,16 +470,16 @@ ${roleLabel}: ${senderName}
       
       // Log login event
       await storage.createEventLog({
-        userId: user.id,
+        partnerId: partner.id,
         eventType: 'USER_LOGIN',
-        message: `تم تسجيل الدخول: ${user.displayName}`,
+        message: `تم تسجيل الدخول: ${partner.displayName}`,
         metadata: null,
         projectId: null,
         periodId: null,
         transactionId: null,
       });
       
-      const { password: _, ...sanitized } = user;
+      const { password: _, ...sanitized } = partner;
       res.json({ user: sanitized, message: "تم تسجيل الدخول بنجاح" });
     } catch (error: any) {
       console.error('Login error:', error);
@@ -520,9 +490,9 @@ ${roleLabel}: ${senderName}
   // Change Password
   app.post("/api/auth/change-password", async (req, res) => {
     try {
-      const { userId, currentPassword, newPassword } = req.body;
+      const { partnerId, currentPassword, newPassword } = req.body;
       
-      if (!userId || !currentPassword || !newPassword) {
+      if (!partnerId || !currentPassword || !newPassword) {
         return res.status(400).json({ error: "يرجى إدخال جميع الحقول المطلوبة" });
       }
       
@@ -530,19 +500,19 @@ ${roleLabel}: ${senderName}
         return res.status(400).json({ error: "كلمة السر الجديدة يجب أن تكون 6 أحرف على الأقل" });
       }
       
-      const user = await storage.getUserProfile(userId);
-      if (!user) {
+      const partner = await storage.getPartner(partnerId);
+      if (!partner || !partner.password) {
         return res.status(404).json({ error: "المستخدم غير موجود" });
       }
       
       // Verify current password
-      const isHashed = user.password.startsWith('$2b$');
+      const isHashed = partner.password.startsWith('$2b$');
       let isValid = false;
       
       if (isHashed) {
-        isValid = await bcrypt.compare(currentPassword, user.password);
+        isValid = await bcrypt.compare(currentPassword, partner.password);
       } else {
-        isValid = currentPassword === user.password;
+        isValid = currentPassword === partner.password;
       }
       
       if (!isValid) {
@@ -551,7 +521,7 @@ ${roleLabel}: ${senderName}
       
       // Hash and save new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await storage.updateUserProfile(userId, { password: hashedPassword });
+      await storage.updatePartner(partnerId, { password: hashedPassword });
       
       res.json({ message: "تم تغيير كلمة السر بنجاح" });
     } catch (error: any) {
@@ -569,8 +539,8 @@ ${roleLabel}: ${senderName}
         return res.status(400).json({ error: "يرجى إدخال البريد الإلكتروني" });
       }
       
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
+      const partner = await storage.getPartnerByEmail(email);
+      if (!partner) {
         // Don't reveal if email exists or not for security
         return res.json({ message: "إذا كان البريد مسجلاً، سيتم إرسال رابط إعادة التعيين" });
       }
@@ -580,7 +550,7 @@ ${roleLabel}: ${senderName}
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
       
       await storage.createResetToken({
-        userId: user.id,
+        partnerId: partner.id,
         token,
         expiresAt,
       });
@@ -631,7 +601,7 @@ ${roleLabel}: ${senderName}
       
       // Hash and save new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await storage.updateUserProfile(resetToken.userId, { password: hashedPassword });
+      await storage.updatePartner(resetToken.partnerId, { password: hashedPassword });
       
       // Mark token as used
       await storage.markTokenUsed(resetToken.id);

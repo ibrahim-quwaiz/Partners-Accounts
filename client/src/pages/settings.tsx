@@ -41,7 +41,7 @@ export default function SettingsPage() {
     
     try {
       const res = await apiRequest("POST", "/api/auth/change-password", {
-        userId: user?.id,
+        partnerId: user?.id,
         currentPassword,
         newPassword,
       });

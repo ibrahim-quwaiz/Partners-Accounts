@@ -55,6 +55,8 @@ export interface PartnerProfile {
   displayName: string;
   phone: string;
   email?: string;
+  username?: string;
+  role?: "ADMIN" | "TX_ONLY";
 }
 
 // --- Backward compatibility exports (deprecated, use context instead) ---

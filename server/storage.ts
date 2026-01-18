@@ -3,7 +3,6 @@ import { db } from "./db";
 import {
   projects,
   periods,
-  userProfiles,
   transactions,
   notifications,
   eventLogs,
@@ -12,7 +11,6 @@ import {
   resetTokens,
   type Project,
   type Period,
-  type UserProfile,
   type Transaction,
   type Notification,
   type EventLog,
@@ -21,7 +19,6 @@ import {
   type ResetToken,
   type InsertProject,
   type InsertPeriod,
-  type InsertUserProfile,
   type InsertTransaction,
   type InsertNotification,
   type InsertEventLog,
@@ -46,13 +43,6 @@ export interface IStorage {
   resetPeriodsForProject(projectId: string): Promise<Period>;
   namePendingPeriod(id: string, name: string): Promise<Period>;
   
-  // Users
-  getUserProfile(id: string): Promise<UserProfile | undefined>;
-  getUserByUsername(username: string): Promise<UserProfile | undefined>;
-  createUserProfile(user: InsertUserProfile): Promise<UserProfile>;
-  updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
-  getAllUsers(): Promise<UserProfile[]>;
-  
   // Transactions
   getTransactionsForPeriod(periodId: string): Promise<Transaction[]>;
   getTransactionsForProject(projectId: string): Promise<Transaction[]>;
@@ -74,10 +64,12 @@ export interface IStorage {
   getAllEventLogs(): Promise<EventLog[]>;
   createEventLog(log: InsertEventLog): Promise<EventLog>;
   
-  // Partners
+  // Partners (also used for authentication)
   getAllPartners(): Promise<Partner[]>;
   getPartner(id: 'P1' | 'P2'): Promise<Partner | undefined>;
   updatePartner(id: 'P1' | 'P2', updates: Partial<Partner>): Promise<Partner | undefined>;
+  getPartnerByUsername(username: string): Promise<Partner | undefined>;
+  getPartnerByEmail(email: string): Promise<Partner | undefined>;
   
   // Period Balances
   getBalancesForPeriod(periodId: string): Promise<Balance[]>;
@@ -88,9 +80,6 @@ export interface IStorage {
   createResetToken(token: InsertResetToken): Promise<ResetToken>;
   getValidResetToken(token: string): Promise<ResetToken | undefined>;
   markTokenUsed(id: string): Promise<void>;
-  
-  // Auth helpers
-  getUserByEmail(email: string): Promise<UserProfile | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -309,34 +298,6 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // Users
-  async getUserProfile(id: string): Promise<UserProfile | undefined> {
-    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
-    return user;
-  }
-
-  async getUserByUsername(username: string): Promise<UserProfile | undefined> {
-    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.username, username));
-    return user;
-  }
-
-  async createUserProfile(user: InsertUserProfile): Promise<UserProfile> {
-    const [newUser] = await db.insert(userProfiles).values(user).returning();
-    return newUser;
-  }
-
-  async updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined> {
-    const [updated] = await db.update(userProfiles)
-      .set(updates)
-      .where(eq(userProfiles.id, id))
-      .returning();
-    return updated;
-  }
-
-  async getAllUsers(): Promise<UserProfile[]> {
-    return await db.select().from(userProfiles);
-  }
-
   // Transactions
   async getTransactionsForPeriod(periodId: string): Promise<Transaction[]> {
     return await db.select().from(transactions)
@@ -363,7 +324,7 @@ export class DatabaseStorage implements IStorage {
       projectId: tx.projectId,
       periodId: tx.periodId,
       transactionId: newTx.id,
-      userId: tx.createdBy || null,
+      partnerId: tx.createdBy || null,
       eventType: 'TX_CREATED',
       message: `تم إنشاء معاملة: ${tx.description}`,
       metadata: null,
@@ -386,7 +347,7 @@ export class DatabaseStorage implements IStorage {
       projectId: tx.projectId,
       periodId: tx.periodId,
       transactionId: id,
-      userId: tx.createdBy || null,
+      partnerId: tx.createdBy || null,
       eventType: 'TX_UPDATED',
       message: `تم تعديل معاملة: ${tx.description}`,
       metadata: null,
@@ -404,7 +365,7 @@ export class DatabaseStorage implements IStorage {
       projectId: tx.projectId,
       periodId: tx.periodId,
       transactionId: id,
-      userId: tx.createdBy || null,
+      partnerId: tx.createdBy || null,
       eventType: 'TX_DELETED',
       message: `تم حذف معاملة: ${tx.description}`,
       metadata: null,
@@ -470,7 +431,7 @@ export class DatabaseStorage implements IStorage {
         projectId: null,
         periodId: null,
         transactionId: null,
-        userId: null,
+        partnerId: null,
       });
     } else if (status === 'FAILED') {
       await this.createEventLog({
@@ -480,7 +441,7 @@ export class DatabaseStorage implements IStorage {
         projectId: null,
         periodId: null,
         transactionId: null,
-        userId: null,
+        partnerId: null,
       });
     }
 
@@ -513,7 +474,7 @@ export class DatabaseStorage implements IStorage {
         projectId: null,
         periodId: null,
         transactionId: null,
-        userId: null,
+        partnerId: null,
       });
     } else if (status === 'FAILED') {
       await this.createEventLog({
@@ -523,7 +484,7 @@ export class DatabaseStorage implements IStorage {
         projectId: null,
         periodId: null,
         transactionId: null,
-        userId: null,
+        partnerId: null,
       });
     }
 
@@ -571,6 +532,16 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getPartnerByUsername(username: string): Promise<Partner | undefined> {
+    const [partner] = await db.select().from(partners).where(eq(partners.username, username));
+    return partner;
+  }
+
+  async getPartnerByEmail(email: string): Promise<Partner | undefined> {
+    const [partner] = await db.select().from(partners).where(eq(partners.email, email));
+    return partner;
+  }
+
   // Period Balances
   async getBalancesForPeriod(periodId: string): Promise<Balance[]> {
     return await db.select().from(periodPartnerBalances)
@@ -614,12 +585,6 @@ export class DatabaseStorage implements IStorage {
     await db.update(resetTokens)
       .set({ usedAt: new Date() })
       .where(eq(resetTokens.id, id));
-  }
-
-  // Auth helpers
-  async getUserByEmail(email: string): Promise<UserProfile | undefined> {
-    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.email, email));
-    return user;
   }
 }
 
