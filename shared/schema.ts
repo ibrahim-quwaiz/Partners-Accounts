@@ -33,6 +33,14 @@ export const eventTypeEnum = pgEnum('event_type', [
   'USER_LOGOUT'
 ]);
 
+export const alertTypeEnum = pgEnum('alert_type', [
+  'HIGH_EXPENSE',
+  'UNUSUAL_FREQUENCY',
+  'BUDGET_EXCEEDED',
+  'LARGE_SETTLEMENT'
+]);
+export const alertStatusEnum = pgEnum('alert_status', ['NEW', 'ACKNOWLEDGED', 'DISMISSED']);
+
 // =====================================================
 // TABLES
 // =====================================================
