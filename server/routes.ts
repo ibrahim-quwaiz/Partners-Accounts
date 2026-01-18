@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { 
   insertProjectSchema,
   insertPeriodSchema,
@@ -456,6 +458,198 @@ ${roleLabel}: ${senderName}
       res.json(sanitized);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to update user" });
+    }
+  });
+
+  // =====================================================
+  // AUTHENTICATION
+  // =====================================================
+  
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "يرجى إدخال اسم المستخدم وكلمة السر" });
+      }
+      
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "اسم المستخدم أو كلمة السر غير صحيحة" });
+      }
+      
+      // Check if password is hashed (starts with $2b$)
+      const isHashed = user.password.startsWith('$2b$');
+      let isValid = false;
+      
+      if (isHashed) {
+        isValid = await bcrypt.compare(password, user.password);
+      } else {
+        // Legacy plain text password - migrate to hash
+        isValid = password === user.password;
+        if (isValid) {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          await storage.updateUserProfile(user.id, { password: hashedPassword });
+        }
+      }
+      
+      if (!isValid) {
+        return res.status(401).json({ error: "اسم المستخدم أو كلمة السر غير صحيحة" });
+      }
+      
+      // Log login event
+      await storage.createEventLog({
+        userId: user.id,
+        eventType: 'USER_LOGIN',
+        message: `تم تسجيل الدخول: ${user.displayName}`,
+        metadata: null,
+        projectId: null,
+        periodId: null,
+        transactionId: null,
+      });
+      
+      const { password: _, ...sanitized } = user;
+      res.json({ user: sanitized, message: "تم تسجيل الدخول بنجاح" });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: "حدث خطأ أثناء تسجيل الدخول" });
+    }
+  });
+  
+  // Change Password
+  app.post("/api/auth/change-password", async (req, res) => {
+    try {
+      const { userId, currentPassword, newPassword } = req.body;
+      
+      if (!userId || !currentPassword || !newPassword) {
+        return res.status(400).json({ error: "يرجى إدخال جميع الحقول المطلوبة" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "كلمة السر الجديدة يجب أن تكون 6 أحرف على الأقل" });
+      }
+      
+      const user = await storage.getUserProfile(userId);
+      if (!user) {
+        return res.status(404).json({ error: "المستخدم غير موجود" });
+      }
+      
+      // Verify current password
+      const isHashed = user.password.startsWith('$2b$');
+      let isValid = false;
+      
+      if (isHashed) {
+        isValid = await bcrypt.compare(currentPassword, user.password);
+      } else {
+        isValid = currentPassword === user.password;
+      }
+      
+      if (!isValid) {
+        return res.status(401).json({ error: "كلمة السر الحالية غير صحيحة" });
+      }
+      
+      // Hash and save new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserProfile(userId, { password: hashedPassword });
+      
+      res.json({ message: "تم تغيير كلمة السر بنجاح" });
+    } catch (error: any) {
+      console.error('Change password error:', error);
+      res.status(500).json({ error: "حدث خطأ أثناء تغيير كلمة السر" });
+    }
+  });
+  
+  // Forgot Password - Request reset link
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "يرجى إدخال البريد الإلكتروني" });
+      }
+      
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return res.json({ message: "إذا كان البريد مسجلاً، سيتم إرسال رابط إعادة التعيين" });
+      }
+      
+      // Generate reset token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      
+      await storage.createResetToken({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+      
+      // Send email via SendGrid
+      const { sendEmail } = await import('./services/notifications');
+      const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+      
+      await sendEmail({
+        to: email,
+        subject: "إعادة تعيين كلمة السر - نظام المحاسبة",
+        text: `لإعادة تعيين كلمة السر، انقر على الرابط التالي:\n\n${resetUrl}\n\nهذا الرابط صالح لمدة ساعة واحدة.`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>إعادة تعيين كلمة السر</h2>
+            <p>لإعادة تعيين كلمة السر، انقر على الرابط التالي:</p>
+            <p><a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">إعادة تعيين كلمة السر</a></p>
+            <p style="color: #666; margin-top: 20px;">هذا الرابط صالح لمدة ساعة واحدة.</p>
+            <p style="color: #999; font-size: 12px;">إذا لم تطلب إعادة تعيين كلمة السر، يمكنك تجاهل هذا البريد.</p>
+          </div>
+        `,
+      });
+      
+      res.json({ message: "تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني" });
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ error: "حدث خطأ أثناء إرسال رابط إعادة التعيين" });
+    }
+  });
+  
+  // Reset Password - Using token
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: "يرجى إدخال جميع الحقول المطلوبة" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "كلمة السر الجديدة يجب أن تكون 6 أحرف على الأقل" });
+      }
+      
+      const resetToken = await storage.getValidResetToken(token);
+      if (!resetToken) {
+        return res.status(400).json({ error: "الرابط غير صالح أو منتهي الصلاحية" });
+      }
+      
+      // Hash and save new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserProfile(resetToken.userId, { password: hashedPassword });
+      
+      // Mark token as used
+      await storage.markTokenUsed(resetToken.id);
+      
+      res.json({ message: "تم إعادة تعيين كلمة السر بنجاح" });
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ error: "حدث خطأ أثناء إعادة تعيين كلمة السر" });
+    }
+  });
+  
+  // Validate reset token
+  app.get("/api/auth/validate-token/:token", async (req, res) => {
+    try {
+      const resetToken = await storage.getValidResetToken(req.params.token);
+      res.json({ valid: !!resetToken });
+    } catch (error) {
+      res.json({ valid: false });
     }
   });
 

@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt, isNull } from "drizzle-orm";
 import { db } from "./db";
 import {
   projects,
@@ -9,6 +9,7 @@ import {
   eventLogs,
   partners,
   periodPartnerBalances,
+  resetTokens,
   type Project,
   type Period,
   type UserProfile,
@@ -17,6 +18,7 @@ import {
   type EventLog,
   type Partner,
   type Balance,
+  type ResetToken,
   type InsertProject,
   type InsertPeriod,
   type InsertUserProfile,
@@ -25,6 +27,7 @@ import {
   type InsertEventLog,
   type InsertPartner,
   type InsertBalance,
+  type InsertResetToken,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -80,6 +83,14 @@ export interface IStorage {
   getBalancesForPeriod(periodId: string): Promise<Balance[]>;
   createBalance(balance: InsertBalance): Promise<Balance>;
   updateBalance(id: string, updates: Partial<Balance>): Promise<Balance | undefined>;
+  
+  // Reset Tokens
+  createResetToken(token: InsertResetToken): Promise<ResetToken>;
+  getValidResetToken(token: string): Promise<ResetToken | undefined>;
+  markTokenUsed(id: string): Promise<void>;
+  
+  // Auth helpers
+  getUserByEmail(email: string): Promise<UserProfile | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -577,6 +588,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(periodPartnerBalances.id, id))
       .returning();
     return updated;
+  }
+
+  // Reset Tokens
+  async createResetToken(token: InsertResetToken): Promise<ResetToken> {
+    const [newToken] = await db.insert(resetTokens).values(token).returning();
+    return newToken;
+  }
+
+  async getValidResetToken(token: string): Promise<ResetToken | undefined> {
+    const now = new Date();
+    const [resetToken] = await db.select().from(resetTokens)
+      .where(and(
+        eq(resetTokens.token, token),
+        isNull(resetTokens.usedAt)
+      ));
+    
+    if (!resetToken) return undefined;
+    if (new Date(resetToken.expiresAt) < now) return undefined;
+    
+    return resetToken;
+  }
+
+  async markTokenUsed(id: string): Promise<void> {
+    await db.update(resetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(resetTokens.id, id));
+  }
+
+  // Auth helpers
+  async getUserByEmail(email: string): Promise<UserProfile | undefined> {
+    const [user] = await db.select().from(userProfiles).where(eq(userProfiles.email, email));
+    return user;
   }
 }
 
