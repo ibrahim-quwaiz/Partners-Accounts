@@ -160,36 +160,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // QUERIES
   // =====================================================
 
-  // Fetch all projects
+  // Fetch all projects (only when user is logged in)
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    enabled: true,
+    enabled: !!user,
   });
 
-  // Fetch periods for active project
+  // Fetch periods for active project (only when user is logged in)
   const { data: periods = [], isLoading: isLoadingPeriods } = useQuery<Period[]>({
     queryKey: ["/api/projects", activeProject?.id, "periods"],
-    enabled: !!activeProject?.id,
+    enabled: !!user && !!activeProject?.id,
     select: (data) => data.map(parsePeriod),
   });
 
-  // Fetch transactions for active period
+  // Fetch transactions for active period (only when user is logged in)
   const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ["/api/periods", activePeriod?.id, "transactions"],
-    enabled: !!activePeriod?.id,
+    enabled: !!user && !!activePeriod?.id,
     select: (data) => data.map(parseTransaction),
   });
 
-  // Fetch partners
+  // Fetch partners (only when user is logged in)
   const { data: partners = [], isLoading: isLoadingPartners } = useQuery<PartnerProfile[]>({
     queryKey: ["/api/partners"],
-    enabled: true,
+    enabled: !!user,
   });
 
-  // Fetch notifications
+  // Fetch notifications (only when user is logged in)
   const { data: notificationsData = [], isLoading: isLoadingNotifications } = useQuery<any[]>({
     queryKey: ["/api/notifications"],
-    enabled: true,
+    enabled: !!user,
     select: (data) => data.map(parseNotification),
   });
 
