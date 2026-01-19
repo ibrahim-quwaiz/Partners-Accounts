@@ -1,42 +1,26 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 
-let connectionSettings: any;
+let transporter: nodemailer.Transporter | null = null;
 
-async function getSendGridCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+function getGmailTransporter() {
+  if (transporter) return transporter;
+  
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+  
+  if (!gmailUser || !gmailAppPassword) {
+    throw new Error('Gmail credentials not configured (GMAIL_USER and GMAIL_APP_PASSWORD required)');
   }
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
-    throw new Error('SendGrid not connected');
-  }
-  return { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
-}
-
-async function getUncachableSendGridClient() {
-  const { apiKey, email } = await getSendGridCredentials();
-  sgMail.setApiKey(apiKey);
-  return {
-    client: sgMail,
-    fromEmail: email
-  };
+  
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailAppPassword,
+    },
+  });
+  
+  return transporter;
 }
 
 export interface SendEmailParams {
@@ -60,11 +44,12 @@ export interface NotificationResult {
 
 export async function sendEmail(params: SendEmailParams): Promise<{ success: boolean; error?: string }> {
   try {
-    const { client, fromEmail } = await getUncachableSendGridClient();
+    const transport = getGmailTransporter();
+    const gmailUser = process.env.GMAIL_USER;
     
-    await client.send({
+    await transport.sendMail({
+      from: gmailUser,
       to: params.to,
-      from: fromEmail,
       subject: params.subject,
       text: params.text,
       html: params.html || params.text,
@@ -72,10 +57,10 @@ export async function sendEmail(params: SendEmailParams): Promise<{ success: boo
     
     return { success: true };
   } catch (error: any) {
-    console.error('SendGrid error:', error);
+    console.error('Gmail error:', error);
     return { 
       success: false, 
-      error: error.response?.body?.errors?.[0]?.message || error.message || 'فشل إرسال البريد الإلكتروني' 
+      error: error.message || 'فشل إرسال البريد الإلكتروني' 
     };
   }
 }
