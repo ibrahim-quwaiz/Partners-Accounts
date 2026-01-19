@@ -54,6 +54,7 @@ export default function UsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[60px] text-center">#</TableHead>
+              <TableHead className="text-start">اسم المستخدم</TableHead>
               <TableHead className="text-start">الاسم</TableHead>
               <TableHead className="text-start">البريد الإلكتروني</TableHead>
               <TableHead className="text-start">رقم الجوال</TableHead>
@@ -71,6 +72,7 @@ export default function UsersPage() {
                     </div>
                   </div>
                 </TableCell>
+                <TableCell className="font-mono text-sm">{partner.username || "-"}</TableCell>
                 <TableCell className="font-medium">{partner.displayName}</TableCell>
                 <TableCell className="text-muted-foreground">{partner.email || "-"}</TableCell>
                 <TableCell className="text-muted-foreground font-mono text-sm">{partner.phone}</TableCell>
