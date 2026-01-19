@@ -16,9 +16,15 @@ import { PartnerModal } from "@/components/partner-modal";
 type UserRole = "ADMIN" | "TX_ONLY";
 
 export default function UsersPage() {
-  const { partners, updatePartner } = useApp();
+  const { partners, updatePartner, user } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState<PartnerProfile | null>(null);
+
+  // TX_ONLY users only see their own data (partners with full profile info have username)
+  const isAdmin = user?.role === "ADMIN";
+  const displayPartners = isAdmin 
+    ? partners 
+    : partners.filter(p => p.username !== undefined);
 
   const handleEdit = (partner: PartnerProfile) => {
     setEditingPartner(partner);
@@ -63,7 +69,7 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {partners.map((partner) => (
+            {displayPartners.map((partner) => (
               <TableRow key={partner.id} data-testid={`row-user-${partner.id}`}>
                 <TableCell className="text-center">
                   <div className="flex justify-center">

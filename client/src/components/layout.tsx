@@ -19,7 +19,7 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
     { label: "التقارير", icon: FileText, href: "/reports", adminOnly: false },
     { label: "الإشعارات", icon: Bell, href: "/notifications", adminOnly: false },
     { label: "سجل الأحداث", icon: History, href: "/event-log", adminOnly: false },
-    { label: "المستخدمين", icon: Users, href: "/users", adminOnly: true },
+    { label: "المستخدمين", icon: Users, href: "/users", adminOnly: false },
   ];
   
   const navItems = allNavItems.filter(item => 

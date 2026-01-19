@@ -29,6 +29,7 @@ interface PartnerModalProps {
 export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps) {
   const { updatePartner, user } = useApp();
   const isAdmin = user?.role === "ADMIN";
+  const isEditingSelf = partner?.id === user?.id;
   const [showPassword, setShowPassword] = useState(false);
   
   const { register, handleSubmit, reset, setValue, watch } = useForm({
@@ -59,18 +60,17 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
     if (partner) {
       const updates: any = {};
       
+      updates.displayName = data.displayName;
+      updates.phone = data.phone;
+      updates.email = data.email;
+      updates.username = data.username;
+      
+      if (data.password && data.password.trim() !== "") {
+        updates.password = data.password;
+      }
+      
       if (isAdmin) {
-        updates.displayName = data.displayName;
-        updates.phone = data.phone;
-        updates.email = data.email;
-        updates.username = data.username;
         updates.role = data.role;
-        if (data.password && data.password.trim() !== "") {
-          updates.password = data.password;
-        }
-      } else {
-        updates.phone = data.phone;
-        updates.email = data.email;
       }
       
       updatePartner(partner.id, updates);
@@ -82,75 +82,57 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>تعديل بيانات الشريك</DialogTitle>
+          <DialogTitle>
+            {isEditingSelf ? "تعديل بياناتي" : "تعديل بيانات الشريك"}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          {isAdmin && (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="username">اسم المستخدم</Label>
-                <Input 
-                  id="username" 
-                  className="text-start" 
-                  dir="ltr"
-                  {...register("username", { required: true })} 
-                  data-testid="input-partner-username"
-                />
-              </div>
+          <div className="grid gap-2">
+            <Label htmlFor="username">اسم المستخدم</Label>
+            <Input 
+              id="username" 
+              className="text-start" 
+              dir="ltr"
+              {...register("username", { required: true })} 
+              data-testid="input-partner-username"
+            />
+          </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="displayName">اسم الشريك</Label>
-                <Input 
-                  id="displayName" 
-                  className="text-start" 
-                  {...register("displayName", { required: true })} 
-                  data-testid="input-partner-displayname"
-                />
-              </div>
+          <div className="grid gap-2">
+            <Label htmlFor="displayName">الاسم</Label>
+            <Input 
+              id="displayName" 
+              className="text-start" 
+              {...register("displayName", { required: true })} 
+              data-testid="input-partner-displayname"
+            />
+          </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="password">كلمة المرور الجديدة</Label>
-                <div className="relative">
-                  <Input 
-                    id="password" 
-                    type={showPassword ? "text" : "password"}
-                    className="text-start pe-10" 
-                    dir="ltr"
-                    placeholder="اتركها فارغة للإبقاء على كلمة المرور الحالية"
-                    {...register("password")} 
-                    data-testid="input-partner-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute start-0 top-0 h-full px-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                    data-testid="button-toggle-password"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">اتركها فارغة إذا لم ترغب في تغيير كلمة المرور</p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="role">الصلاحية</Label>
-                <Select 
-                  value={role} 
-                  onValueChange={(value) => setValue("role", value as "ADMIN" | "TX_ONLY")}
-                >
-                  <SelectTrigger data-testid="select-partner-role">
-                    <SelectValue placeholder="اختر الصلاحية" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ADMIN">مدير (كامل الصلاحيات)</SelectItem>
-                    <SelectItem value="TX_ONLY">معاملات فقط</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
+          <div className="grid gap-2">
+            <Label htmlFor="password">كلمة المرور الجديدة</Label>
+            <div className="relative">
+              <Input 
+                id="password" 
+                type={showPassword ? "text" : "password"}
+                className="text-start pe-10" 
+                dir="ltr"
+                placeholder="اتركها فارغة للإبقاء على كلمة المرور الحالية"
+                {...register("password")} 
+                data-testid="input-partner-password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute start-0 top-0 h-full px-3"
+                onClick={() => setShowPassword(!showPassword)}
+                data-testid="button-toggle-password"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">اتركها فارغة إذا لم ترغب في تغيير كلمة المرور</p>
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="phone">رقم الجوال</Label>
@@ -174,6 +156,24 @@ export function PartnerModal({ open, onOpenChange, partner }: PartnerModalProps)
               data-testid="input-partner-email"
             />
           </div>
+
+          {isAdmin && (
+            <div className="grid gap-2">
+              <Label htmlFor="role">الصلاحية</Label>
+              <Select 
+                value={role} 
+                onValueChange={(value) => setValue("role", value as "ADMIN" | "TX_ONLY")}
+              >
+                <SelectTrigger data-testid="select-partner-role">
+                  <SelectValue placeholder="اختر الصلاحية" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMIN">مدير (كامل الصلاحيات)</SelectItem>
+                  <SelectItem value="TX_ONLY">معاملات فقط</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <DialogFooter className="mt-4 gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-partner">

@@ -439,15 +439,30 @@ ${roleLabel}: ${senderName}
   app.get("/api/partners", requireAuth, async (req, res) => {
     try {
       const partners = await storage.getAllPartners();
-      // Return only id, displayName, phone, email for non-admins (no password, username)
-      if (req.session.user!.role !== 'ADMIN') {
-        const sanitized = partners.map(p => ({
-          id: p.id,
-          displayName: p.displayName,
-          phone: p.phone,
-          email: p.email,
-        }));
-        return res.json(sanitized);
+      const user = req.session.user!;
+      
+      // TX_ONLY users get their own full data, but only names for other partners
+      if (user.role !== 'ADMIN') {
+        const result = partners.map(p => {
+          if (p.id === user.id) {
+            // Full profile data for self
+            return {
+              id: p.id,
+              displayName: p.displayName,
+              phone: p.phone,
+              email: p.email,
+              username: p.username,
+              role: p.role,
+            };
+          } else {
+            // Only name for other partners (needed for transaction displays)
+            return {
+              id: p.id,
+              displayName: p.displayName,
+            };
+          }
+        });
+        return res.json(result);
       }
       // ADMIN gets full data except password
       const sanitized = partners.map(({ password, ...rest }) => rest);
@@ -506,47 +521,42 @@ ${roleLabel}: ${senderName}
         return res.status(403).json({ error: "ليس لديك صلاحية لهذه العملية" });
       }
       
-      // TX_ONLY users can only update phone and email
+      // Build updates based on user role
       let updates: Partial<{ displayName: string; phone: string; email: string; username: string; password: string; role: 'ADMIN' | 'TX_ONLY' }>;
-      if (user.role !== 'ADMIN') {
-        updates = {
-          phone: req.body.phone,
-          email: req.body.email,
-        };
-        // Remove undefined values
-        Object.keys(updates).forEach(key => {
-          if (updates[key as keyof typeof updates] === undefined) {
-            delete updates[key as keyof typeof updates];
-          }
-        });
-      } else {
-        // ADMIN can update all fields including username, password, and role
-        const roleValue = req.body.role as 'ADMIN' | 'TX_ONLY' | undefined;
-        updates = {
-          displayName: req.body.displayName,
-          phone: req.body.phone,
-          email: req.body.email,
-          username: req.body.username,
-          role: roleValue,
-        };
-        
-        // Handle password - hash if provided
-        if (req.body.password && req.body.password.trim() !== '') {
-          updates.password = await bcrypt.hash(req.body.password, 10);
-        }
-        
-        Object.keys(updates).forEach(key => {
-          if (updates[key as keyof typeof updates] === undefined) {
-            delete updates[key as keyof typeof updates];
-          }
-        });
+      
+      // Base updates - all users can update these fields for their own profile
+      updates = {
+        displayName: req.body.displayName,
+        phone: req.body.phone,
+        email: req.body.email,
+        username: req.body.username,
+      };
+      
+      // Handle password - hash if provided
+      if (req.body.password && req.body.password.trim() !== '') {
+        updates.password = await bcrypt.hash(req.body.password, 10);
       }
+      
+      // Only ADMIN can update role
+      if (user.role === 'ADMIN') {
+        const roleValue = req.body.role as 'ADMIN' | 'TX_ONLY' | undefined;
+        updates.role = roleValue;
+      }
+      
+      // Remove undefined values
+      Object.keys(updates).forEach(key => {
+        if (updates[key as keyof typeof updates] === undefined) {
+          delete updates[key as keyof typeof updates];
+        }
+      });
       
       const partner = await storage.updatePartner(id, updates);
       if (!partner) {
         return res.status(404).json({ error: "Partner not found" });
       }
-      res.json(partner);
+      // Sanitize response - never return password
+      const { password: _, ...sanitized } = partner;
+      res.json(sanitized);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Failed to update partner" });
     }
