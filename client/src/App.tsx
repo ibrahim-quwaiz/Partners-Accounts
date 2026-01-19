@@ -57,11 +57,11 @@ function AppContent() {
     <Layout onChangeProject={handleChangeProject}>
       <Switch>
         <Route path="/" component={TransactionsPage} />
-        <Route path="/periods" component={PeriodsPage} />
+        {user?.role === "ADMIN" && <Route path="/periods" component={PeriodsPage} />}
         <Route path="/reports" component={ReportsPage} />
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/event-log" component={EventLogPage} />
-        <Route path="/users" component={UsersPage} />
+        {user?.role === "ADMIN" && <Route path="/users" component={UsersPage} />}
         
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />

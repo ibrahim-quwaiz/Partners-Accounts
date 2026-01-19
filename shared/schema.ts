@@ -114,21 +114,6 @@ export const eventLogs = pgTable("event_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Period Partner Balances
-export const periodPartnerBalances = pgTable("period_partner_balances", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  periodId: uuid("period_id").notNull().references(() => periods.id, { onDelete: 'cascade' }),
-  partner: partnerIdEnum("partner").notNull(),
-  openingBalance: numeric("opening_balance", { precision: 12, scale: 2 }).default('0').notNull(),
-  closingBalance: numeric("closing_balance", { precision: 12, scale: 2 }),
-  totalPaid: numeric("total_paid", { precision: 12, scale: 2 }).default('0').notNull(),
-  totalReceived: numeric("total_received", { precision: 12, scale: 2 }).default('0').notNull(),
-  profitShare: numeric("profit_share", { precision: 12, scale: 2 }).default('0').notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Partners (for profile management and authentication)
 export const partners = pgTable("partners", {
   id: partnerIdEnum("id").primaryKey(),
@@ -159,7 +144,6 @@ export const projectsRelations = relations(projects, ({ many }) => ({
   periods: many(periods),
   transactions: many(transactions),
   eventLogs: many(eventLogs),
-  balances: many(periodPartnerBalances),
 }));
 
 export const periodsRelations = relations(periods, ({ one, many }) => ({
@@ -169,7 +153,6 @@ export const periodsRelations = relations(periods, ({ one, many }) => ({
   }),
   transactions: many(transactions),
   eventLogs: many(eventLogs),
-  balances: many(periodPartnerBalances),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one, many }) => ({
@@ -215,16 +198,6 @@ export const eventLogsRelations = relations(eventLogs, ({ one }) => ({
   }),
 }));
 
-export const balancesRelations = relations(periodPartnerBalances, ({ one }) => ({
-  project: one(projects, {
-    fields: [periodPartnerBalances.projectId],
-    references: [projects.id],
-  }),
-  period: one(periods, {
-    fields: [periodPartnerBalances.periodId],
-    references: [periods.id],
-  }),
-}));
 
 // =====================================================
 // SCHEMAS & TYPES
@@ -275,15 +248,6 @@ export const insertEventLogSchema = createInsertSchema(eventLogs).omit({
 });
 export type InsertEventLog = z.infer<typeof insertEventLogSchema>;
 export type EventLog = typeof eventLogs.$inferSelect;
-
-// Partner Balances
-export const insertBalanceSchema = createInsertSchema(periodPartnerBalances).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertBalance = z.infer<typeof insertBalanceSchema>;
-export type Balance = typeof periodPartnerBalances.$inferSelect;
 
 // Partners
 export const insertPartnerSchema = createInsertSchema(partners).omit({

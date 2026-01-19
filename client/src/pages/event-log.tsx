@@ -46,10 +46,10 @@ interface EventLog {
   projectId: string | null;
   periodId: string | null;
   transactionId: string | null;
+  partnerId: string | null;
   eventType: EventType;
   message: string;
   metadata: any;
-  userId: string | null;
   createdAt: string;
 }
 
@@ -88,7 +88,7 @@ const getEventBadge = (type: EventType) => {
 };
 
 export default function EventLogPage() {
-  const { activeProject, periods } = useApp();
+  const { activeProject, periods, partners } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   
   const isAllPeriods = selectedPeriod === "all";
@@ -104,6 +104,12 @@ export default function EventLogPage() {
     if (!periodId) return "-";
     const period = periods.find(p => p.id === periodId);
     return period?.name || "-";
+  };
+  
+  const getPartnerName = (partnerId: string | null) => {
+    if (!partnerId) return "-";
+    const partner = partners.find(p => p.id === partnerId);
+    return partner?.displayName || partnerId;
   };
 
   const formatDate = (dateStr: string) => {
@@ -145,19 +151,20 @@ export default function EventLogPage() {
               <TableHead className="text-right w-[160px]">التاريخ</TableHead>
               <TableHead className="text-right w-[140px]">نوع الحدث</TableHead>
               <TableHead className="text-right">الوصف</TableHead>
+              <TableHead className="text-right w-[100px]">المستخدم</TableHead>
               {isAllPeriods && <TableHead className="text-right w-[120px]">الفترة</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={isAllPeriods ? 4 : 3} className="h-24 text-center">
+                <TableCell colSpan={isAllPeriods ? 5 : 4} className="h-24 text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : events.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAllPeriods ? 4 : 3} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={isAllPeriods ? 5 : 4} className="h-24 text-center text-muted-foreground">
                   لا توجد أحداث لهذه الفترة
                 </TableCell>
               </TableRow>
@@ -171,6 +178,9 @@ export default function EventLogPage() {
                     {getEventBadge(event.eventType)}
                   </TableCell>
                   <TableCell>{event.message}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {getPartnerName(event.partnerId)}
+                  </TableCell>
                   {isAllPeriods && (
                     <TableCell className="text-muted-foreground">
                       {getPeriodName(event.periodId)}

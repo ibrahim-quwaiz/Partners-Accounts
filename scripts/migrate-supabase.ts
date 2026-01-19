@@ -131,7 +131,12 @@ async function migrate() {
       await client.query('ALTER TABLE transactions ADD COLUMN created_by partner_id');
     }
     
-    // 8. Verify partners
+    // 8. Drop unused period_partner_balances table if exists
+    console.log('\nDropping unused period_partner_balances table...');
+    await client.query('DROP TABLE IF EXISTS period_partner_balances CASCADE');
+    console.log('period_partner_balances table dropped (if existed).');
+    
+    // 9. Verify partners
     console.log('\nVerifying partners table:');
     const partners = await client.query('SELECT id, display_name, username, role FROM partners');
     console.table(partners.rows);

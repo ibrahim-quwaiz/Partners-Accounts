@@ -13,14 +13,18 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout, activeProject } = useApp();
 
-  const navItems = [
-    { label: "المعاملات", icon: LayoutDashboard, href: "/" },
-    { label: "الفترات", icon: CalendarDays, href: "/periods" },
-    { label: "التقارير", icon: FileText, href: "/reports" },
-    { label: "الإشعارات", icon: Bell, href: "/notifications" },
-    { label: "سجل الأحداث", icon: History, href: "/event-log" },
-    { label: "المستخدمين", icon: Users, href: "/users" },
+  const allNavItems = [
+    { label: "المعاملات", icon: LayoutDashboard, href: "/", adminOnly: false },
+    { label: "الفترات", icon: CalendarDays, href: "/periods", adminOnly: true },
+    { label: "التقارير", icon: FileText, href: "/reports", adminOnly: false },
+    { label: "الإشعارات", icon: Bell, href: "/notifications", adminOnly: false },
+    { label: "سجل الأحداث", icon: History, href: "/event-log", adminOnly: false },
+    { label: "المستخدمين", icon: Users, href: "/users", adminOnly: true },
   ];
+  
+  const navItems = allNavItems.filter(item => 
+    !item.adminOnly || user?.role === "ADMIN"
+  );
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col md:flex-row">
@@ -37,7 +41,7 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
            {/* Current Project Badge - Display only, no dropdown */}
            <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
              <p className="text-xs text-muted-foreground mb-1">المشروع الحالي</p>
-             <p className="font-medium text-sm truncate">{activeProject.name}</p>
+             <p className="font-medium text-sm truncate">{activeProject?.name}</p>
              {onChangeProject && (
                <Button 
                  variant="ghost" 
@@ -79,7 +83,7 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
              <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-sm font-medium truncate">{user?.username || "زائر"}</span>
                 <span className="text-xs text-muted-foreground">
-                  {user?.role === "admin" ? "مدير النظام" : "مستخدم"}
+                  {user?.role === "ADMIN" ? "مدير النظام" : "مستخدم"}
                 </span>
              </div>
           </div>
@@ -103,7 +107,7 @@ export function Layout({ children, onChangeProject }: LayoutProps) {
              {/* Project name badge in header */}
              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                <Briefcase className="h-4 w-4" />
-               <span>{activeProject.name}</span>
+               <span>{activeProject?.name}</span>
              </div>
            </div>
         </header>

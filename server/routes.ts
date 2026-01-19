@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
@@ -12,14 +12,46 @@ import {
   insertPartnerSchema,
 } from "@shared/schema";
 
+function logAccessDenied(userId: 'P1' | 'P2' | undefined, displayName: string | undefined, method: string, path: string, reason: string) {
+  if (userId) {
+    storage.createEventLog({
+      partnerId: userId,
+      eventType: 'ACCESS_DENIED',
+      message: `محاولة وصول مرفوضة من ${displayName || userId} إلى: ${method} ${path} - ${reason}`,
+      metadata: null,
+      projectId: null,
+      periodId: null,
+      transactionId: null,
+    }).catch(console.error);
+  }
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "يرجى تسجيل الدخول" });
+  }
+  next();
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "يرجى تسجيل الدخول" });
+  }
+  if (req.session.user.role !== 'ADMIN') {
+    logAccessDenied(req.session.user.id, req.session.user.displayName, req.method, req.path, 'يتطلب صلاحية مسؤول');
+    return res.status(403).json({ error: "ليس لديك صلاحية لهذه العملية" });
+  }
+  next();
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // =====================================================
-  // PROJECTS
+  // PROJECTS (require auth)
   // =====================================================
-  app.get("/api/projects", async (req, res) => {
+  app.get("/api/projects", requireAuth, async (req, res) => {
     try {
       const projects = await storage.getAllProjects();
       res.json(projects);
@@ -28,7 +60,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  app.get("/api/projects/:id", requireAuth, async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
@@ -41,9 +73,9 @@ export async function registerRoutes(
   });
 
   // =====================================================
-  // PERIODS
+  // PERIODS (require auth for read, ADMIN only for management)
   // =====================================================
-  app.get("/api/projects/:projectId/periods", async (req, res) => {
+  app.get("/api/projects/:projectId/periods", requireAuth, async (req, res) => {
     try {
       const projectId = req.params.projectId;
       let periodsList = await storage.getPeriodsForProject(projectId);
@@ -68,7 +100,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/periods/:id", async (req, res) => {
+  app.get("/api/periods/:id", requireAuth, async (req, res) => {
     try {
       const period = await storage.getPeriod(req.params.id);
       if (!period) {
@@ -80,7 +112,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/projects/:projectId/periods/reset", async (req, res) => {
+  app.post("/api/projects/:projectId/periods/reset", requireAdmin, async (req, res) => {
     try {
       const { projectId } = req.params;
       const period = await storage.resetPeriodsForProject(projectId);
@@ -95,7 +127,7 @@ export async function registerRoutes(
     return res.status(400).json({ error: "لا يمكن فتح فترات يدوياً. يتم إنشاء الفترات تلقائياً عند إقفال الفترة الحالية." });
   });
 
-  app.patch("/api/periods/:id/close", async (req, res) => {
+  app.patch("/api/periods/:id/close", requireAdmin, async (req, res) => {
     try {
       const period = await storage.closePeriodWithBalances(req.params.id);
       res.json(period);
@@ -114,8 +146,8 @@ export async function registerRoutes(
     return res.status(400).json({ error: "لا يمكن تغيير حالة الفترة يدوياً. استخدم إقفال الفترة أو تسميتها." });
   });
 
-  // Name a PENDING_NAME period and activate it
-  app.patch("/api/periods/:id/name", async (req, res) => {
+  // Name a PENDING_NAME period and activate it (ADMIN only)
+  app.patch("/api/periods/:id/name", requireAdmin, async (req, res) => {
     try {
       const { name } = req.body;
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -139,9 +171,9 @@ export async function registerRoutes(
   });
 
   // =====================================================
-  // TRANSACTIONS
+  // TRANSACTIONS (require auth)
   // =====================================================
-  app.get("/api/periods/:periodId/transactions", async (req, res) => {
+  app.get("/api/periods/:periodId/transactions", requireAuth, async (req, res) => {
     try {
       const transactions = await storage.getTransactionsForPeriod(req.params.periodId);
       res.json(transactions);
@@ -150,7 +182,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/projects/:projectId/transactions", async (req, res) => {
+  app.get("/api/projects/:projectId/transactions", requireAuth, async (req, res) => {
     try {
       const transactions = await storage.getTransactionsForProject(req.params.projectId);
       res.json(transactions);
@@ -159,7 +191,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/transactions/:id", async (req, res) => {
+  app.get("/api/transactions/:id", requireAuth, async (req, res) => {
     try {
       const transaction = await storage.getTransaction(req.params.id);
       if (!transaction) {
@@ -171,7 +203,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/transactions", async (req, res) => {
+  app.post("/api/transactions", requireAuth, async (req, res) => {
     try {
       const validated = insertTransactionSchema.parse(req.body);
       
@@ -184,7 +216,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "لا يمكن إضافة معاملات إلا للفترات المفتوحة" });
       }
       
-      const transaction = await storage.createTransaction(validated);
+      // Set createdBy from session
+      const txData = {
+        ...validated,
+        createdBy: req.session.user!.id as 'P1' | 'P2',
+      };
+      
+      const transaction = await storage.createTransaction(txData);
       
       // Auto-create notification for this transaction
       await storage.createNotification({
@@ -201,7 +239,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/transactions/:id", async (req, res) => {
+  app.patch("/api/transactions/:id", requireAuth, async (req, res) => {
     try {
       const existingTx = await storage.getTransaction(req.params.id);
       if (!existingTx) {
@@ -221,7 +259,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/transactions/:id", async (req, res) => {
+  app.delete("/api/transactions/:id", requireAuth, async (req, res) => {
     try {
       const existingTx = await storage.getTransaction(req.params.id);
       if (!existingTx) {
@@ -242,9 +280,9 @@ export async function registerRoutes(
   });
 
   // =====================================================
-  // NOTIFICATIONS
+  // NOTIFICATIONS (require auth)
   // =====================================================
-  app.get("/api/notifications", async (req, res) => {
+  app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
       const notifications = await storage.getAllNotifications();
       res.json(notifications);
@@ -253,7 +291,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/notifications/:id/status", async (req, res) => {
+  app.patch("/api/notifications/:id/status", requireAuth, async (req, res) => {
     try {
       const { status, error } = req.body;
       if (!status || !['PENDING', 'SENT', 'FAILED'].includes(status)) {
@@ -270,7 +308,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/notifications/:id/send", async (req, res) => {
+  app.post("/api/notifications/:id/send", requireAuth, async (req, res) => {
     try {
       const { sendNotification } = await import('./services/notifications');
       
@@ -364,9 +402,9 @@ ${roleLabel}: ${senderName}
   });
 
   // =====================================================
-  // EVENT LOGS
+  // EVENT LOGS (require auth)
   // =====================================================
-  app.get("/api/projects/:projectId/events", async (req, res) => {
+  app.get("/api/projects/:projectId/events", requireAuth, async (req, res) => {
     try {
       const events = await storage.getEventLogsForProject(req.params.projectId);
       res.json(events);
@@ -375,7 +413,7 @@ ${roleLabel}: ${senderName}
     }
   });
 
-  app.get("/api/periods/:periodId/events", async (req, res) => {
+  app.get("/api/periods/:periodId/events", requireAuth, async (req, res) => {
     try {
       const events = await storage.getEventLogsForPeriod(req.params.periodId);
       res.json(events);
@@ -384,7 +422,7 @@ ${roleLabel}: ${senderName}
     }
   });
 
-  app.get("/api/events", async (req, res) => {
+  app.get("/api/events", requireAuth, async (req, res) => {
     try {
       const events = await storage.getAllEventLogs();
       res.json(events);
@@ -394,34 +432,108 @@ ${roleLabel}: ${senderName}
   });
 
   // =====================================================
-  // PARTNERS
+  // PARTNERS (user management)
   // =====================================================
-  app.get("/api/partners", async (req, res) => {
+  
+  // Basic partner list for name display (all authenticated users)
+  app.get("/api/partners", requireAuth, async (req, res) => {
     try {
       const partners = await storage.getAllPartners();
-      res.json(partners);
+      // Return only id, displayName, phone, email for non-admins (no password, username)
+      if (req.session.user!.role !== 'ADMIN') {
+        const sanitized = partners.map(p => ({
+          id: p.id,
+          displayName: p.displayName,
+          phone: p.phone,
+          email: p.email,
+        }));
+        return res.json(sanitized);
+      }
+      // ADMIN gets full data except password
+      const sanitized = partners.map(({ password, ...rest }) => rest);
+      res.json(sanitized);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch partners" });
     }
   });
 
-  app.get("/api/partners/:id", async (req, res) => {
+  app.get("/api/partners/:id", requireAuth, async (req, res) => {
     try {
       const id = req.params.id as 'P1' | 'P2';
+      const user = req.session.user!;
+      
+      // Users can only view their own profile, ADMIN can view all
+      if (user.role !== 'ADMIN' && user.id !== id) {
+        logAccessDenied(user.id, user.displayName, req.method, req.path, 'محاولة عرض بيانات مستخدم آخر');
+        return res.status(403).json({ error: "ليس لديك صلاحية لهذه العملية" });
+      }
+      
       const partner = await storage.getPartner(id);
       if (!partner) {
         return res.status(404).json({ error: "Partner not found" });
       }
-      res.json(partner);
+      
+      // Sanitize response - never return password
+      const { password, ...sanitized } = partner;
+      
+      // Non-admins viewing their own profile get limited data
+      if (user.role !== 'ADMIN') {
+        const limitedData = {
+          id: partner.id,
+          displayName: partner.displayName,
+          phone: partner.phone,
+          email: partner.email,
+          username: partner.username,
+          role: partner.role,
+        };
+        return res.json(limitedData);
+      }
+      
+      res.json(sanitized);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch partner" });
     }
   });
 
-  app.patch("/api/partners/:id", async (req, res) => {
+  app.patch("/api/partners/:id", requireAuth, async (req, res) => {
     try {
       const id = req.params.id as 'P1' | 'P2';
-      const partner = await storage.updatePartner(id, req.body);
+      const user = req.session.user!;
+      
+      // Users can only update their own profile
+      if (user.role !== 'ADMIN' && user.id !== id) {
+        logAccessDenied(user.id, user.displayName, req.method, req.path, 'محاولة تعديل بيانات مستخدم آخر');
+        return res.status(403).json({ error: "ليس لديك صلاحية لهذه العملية" });
+      }
+      
+      // TX_ONLY users can only update phone and email
+      let updates: Partial<{ displayName: string; phone: string; email: string }>;
+      if (user.role !== 'ADMIN') {
+        updates = {
+          phone: req.body.phone,
+          email: req.body.email,
+        };
+        // Remove undefined values
+        Object.keys(updates).forEach(key => {
+          if (updates[key as keyof typeof updates] === undefined) {
+            delete updates[key as keyof typeof updates];
+          }
+        });
+      } else {
+        // ADMIN can update displayName, phone, email only (password change via separate endpoint)
+        updates = {
+          displayName: req.body.displayName,
+          phone: req.body.phone,
+          email: req.body.email,
+        };
+        Object.keys(updates).forEach(key => {
+          if (updates[key as keyof typeof updates] === undefined) {
+            delete updates[key as keyof typeof updates];
+          }
+        });
+      }
+      
+      const partner = await storage.updatePartner(id, updates);
       if (!partner) {
         return res.status(404).json({ error: "Partner not found" });
       }
@@ -468,6 +580,14 @@ ${roleLabel}: ${senderName}
         return res.status(401).json({ error: "اسم المستخدم أو كلمة السر غير صحيحة" });
       }
       
+      // Save session
+      req.session.user = {
+        id: partner.id,
+        username: partner.username!,
+        displayName: partner.displayName,
+        role: partner.role as 'ADMIN' | 'TX_ONLY',
+      };
+      
       // Log login event
       await storage.createEventLog({
         partnerId: partner.id,
@@ -485,6 +605,44 @@ ${roleLabel}: ${senderName}
       console.error('Login error:', error);
       res.status(500).json({ error: "حدث خطأ أثناء تسجيل الدخول" });
     }
+  });
+  
+  // Get current session
+  app.get("/api/auth/session", (req, res) => {
+    if (req.session.user) {
+      res.json({ user: req.session.user });
+    } else {
+      res.json({ user: null });
+    }
+  });
+  
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    const userName = req.session.user?.displayName;
+    const userId = req.session.user?.id;
+    
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: "حدث خطأ أثناء تسجيل الخروج" });
+      }
+      
+      // Log logout event
+      if (userId) {
+        storage.createEventLog({
+          partnerId: userId,
+          eventType: 'USER_LOGOUT',
+          message: `تم تسجيل الخروج: ${userName}`,
+          metadata: null,
+          projectId: null,
+          periodId: null,
+          transactionId: null,
+        }).catch(console.error);
+      }
+      
+      res.clearCookie('connect.sid');
+      res.json({ message: "تم تسجيل الخروج بنجاح" });
+    });
   });
   
   // Change Password

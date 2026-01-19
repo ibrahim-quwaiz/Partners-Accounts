@@ -37,16 +37,27 @@ Preferred communication style: Simple, everyday language.
 - **Mock Data Pattern**: Frontend currently uses mock data in `appContext.tsx` for UI development
 - **Single Source of Truth**: Period selection uses single dropdown per page, no duplicates
 
+### Authentication & Authorization
+- **Session-based authentication**: Using express-session for server-side session management
+- **Two roles**: ADMIN (full access) and TX_ONLY (transactions only)
+- **Partner credentials**: Stored in `partners` table with bcrypt-hashed passwords
+- **Protected endpoints**: All data endpoints require authentication
+- **Role-based access control**:
+  - ADMIN: Full access to all features including period management and user administration
+  - TX_ONLY: Can only manage transactions; periods and user pages are hidden and server-protected
+- **Access denied logging**: Unauthorized access attempts are logged in event_logs
+
 ### Application Flow
-1. User logs in (mock authentication)
+1. User logs in (session-based authentication)
 2. User selects a project (one-time per session)
 3. Main application with sidebar navigation:
    - Transactions (Expenses/Revenues/Settlements tabs)
-   - Periods (accounting period management)
+   - Periods (accounting period management) - **ADMIN only**
    - Reports (financial summaries)
    - Notifications
    - Event Log
-   - Users
+   - Users - **ADMIN only**
+   - Settings (profile management)
 
 ### Business Rules
 - Transactions are tied to both Project and Period

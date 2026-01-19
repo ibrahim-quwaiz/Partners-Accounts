@@ -103,6 +103,7 @@ export interface AuthUser {
   id: string;
   username: string;
   displayName: string;
+  phone: string;
   email: string | null;
   role: "ADMIN" | "TX_ONLY";
 }
@@ -120,8 +121,9 @@ interface AppContextType {
   
   // Auth
   user: AuthUser | null;
+  setUser: (user: AuthUser | null) => void;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoggingIn: boolean;
 
   // Notifications
@@ -210,6 +212,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         paidBy: tx.paidBy || null,
         fromPartner: tx.fromPartner || null,
         toPartner: tx.toPartner || null,
+        createdBy: user?.id || null,
       };
       const res = await apiRequest("POST", "/api/transactions", payload);
       return res.json();
@@ -339,6 +342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id: data.user.id,
           username: data.user.username,
           displayName: data.user.displayName,
+          phone: data.user.phone || "",
           email: data.user.email,
           role: data.user.role,
         });
@@ -353,7 +357,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
     setUser(null);
   };
 
@@ -383,6 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteTransaction,
         getFilteredTransactions,
         user,
+        setUser,
         login,
         logout,
         isLoggingIn,

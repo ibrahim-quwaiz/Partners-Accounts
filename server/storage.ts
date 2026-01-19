@@ -7,7 +7,6 @@ import {
   notifications,
   eventLogs,
   partners,
-  periodPartnerBalances,
   resetTokens,
   type Project,
   type Period,
@@ -15,7 +14,6 @@ import {
   type Notification,
   type EventLog,
   type Partner,
-  type Balance,
   type ResetToken,
   type InsertProject,
   type InsertPeriod,
@@ -23,7 +21,6 @@ import {
   type InsertNotification,
   type InsertEventLog,
   type InsertPartner,
-  type InsertBalance,
   type InsertResetToken,
 } from "@shared/schema";
 
@@ -70,11 +67,6 @@ export interface IStorage {
   updatePartner(id: 'P1' | 'P2', updates: Partial<Partner>): Promise<Partner | undefined>;
   getPartnerByUsername(username: string): Promise<Partner | undefined>;
   getPartnerByEmail(email: string): Promise<Partner | undefined>;
-  
-  // Period Balances
-  getBalancesForPeriod(periodId: string): Promise<Balance[]>;
-  createBalance(balance: InsertBalance): Promise<Balance>;
-  updateBalance(id: string, updates: Partial<Balance>): Promise<Balance | undefined>;
   
   // Reset Tokens
   createResetToken(token: InsertResetToken): Promise<ResetToken>;
@@ -540,25 +532,6 @@ export class DatabaseStorage implements IStorage {
   async getPartnerByEmail(email: string): Promise<Partner | undefined> {
     const [partner] = await db.select().from(partners).where(eq(partners.email, email));
     return partner;
-  }
-
-  // Period Balances
-  async getBalancesForPeriod(periodId: string): Promise<Balance[]> {
-    return await db.select().from(periodPartnerBalances)
-      .where(eq(periodPartnerBalances.periodId, periodId));
-  }
-
-  async createBalance(balance: InsertBalance): Promise<Balance> {
-    const [newBalance] = await db.insert(periodPartnerBalances).values(balance).returning();
-    return newBalance;
-  }
-
-  async updateBalance(id: string, updates: Partial<Balance>): Promise<Balance | undefined> {
-    const [updated] = await db.update(periodPartnerBalances)
-      .set(updates)
-      .where(eq(periodPartnerBalances.id, id))
-      .returning();
-    return updated;
   }
 
   // Reset Tokens
