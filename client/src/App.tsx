@@ -61,7 +61,7 @@ function AppContent() {
         <Route path="/reports" component={ReportsPage} />
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/event-log" component={EventLogPage} />
-        {user?.role === "ADMIN" && <Route path="/users" component={UsersPage} />}
+        <Route path="/users" component={UsersPage} />
         
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
