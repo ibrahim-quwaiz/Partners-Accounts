@@ -507,7 +507,7 @@ ${roleLabel}: ${senderName}
       }
       
       // TX_ONLY users can only update phone and email
-      let updates: Partial<{ displayName: string; phone: string; email: string }>;
+      let updates: Partial<{ displayName: string; phone: string; email: string; username: string; password: string; role: 'ADMIN' | 'TX_ONLY' }>;
       if (user.role !== 'ADMIN') {
         updates = {
           phone: req.body.phone,
@@ -520,12 +520,21 @@ ${roleLabel}: ${senderName}
           }
         });
       } else {
-        // ADMIN can update displayName, phone, email only (password change via separate endpoint)
+        // ADMIN can update all fields including username, password, and role
+        const roleValue = req.body.role as 'ADMIN' | 'TX_ONLY' | undefined;
         updates = {
           displayName: req.body.displayName,
           phone: req.body.phone,
           email: req.body.email,
+          username: req.body.username,
+          role: roleValue,
         };
+        
+        // Handle password - hash if provided
+        if (req.body.password && req.body.password.trim() !== '') {
+          updates.password = await bcrypt.hash(req.body.password, 10);
+        }
+        
         Object.keys(updates).forEach(key => {
           if (updates[key as keyof typeof updates] === undefined) {
             delete updates[key as keyof typeof updates];
