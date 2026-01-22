@@ -1,17 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist/public",
-  "framework": null,
-  "installCommand": "npm install",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/assets/(.*)",
-      "destination": "/assets/$1"
-    },
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/dist/index.cjs"
+      "src": "/(.*)",
+      "dest": "/dist/index.cjs"
     }
   ]
 }
