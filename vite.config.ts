@@ -5,6 +5,9 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
 
+// استخدام process.cwd() للحصول على المجلد الرئيسي للمشروع
+const projectRoot = process.cwd();
+
 // استيراد إضافات Replit بشكل آمن
 async function getReplitPlugins() {
   if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
@@ -33,9 +36,8 @@ export default defineConfig(async () => {
     ],
     resolve: {
       alias: {
-        "@": path.resolve(import.meta.dirname, "client", "src"),
-        "@shared": path.resolve(import.meta.dirname, "shared"),
-        "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+        "@": path.resolve(projectRoot, "client", "src"),
+        "@shared": path.resolve(projectRoot, "shared"),
       },
     },
     css: {
@@ -43,17 +45,21 @@ export default defineConfig(async () => {
         plugins: [],
       },
     },
-    root: path.resolve(import.meta.dirname, "client"),
+    root: path.resolve(projectRoot, "client"),
+    publicDir: path.resolve(projectRoot, "client", "public"),
     build: {
-      outDir: path.resolve(import.meta.dirname, "dist/public"),
+      outDir: path.resolve(projectRoot, "dist", "public"),
       emptyOutDir: true,
+      rollupOptions: {
+        input: path.resolve(projectRoot, "client", "index.html"),
+      },
     },
     server: {
       host: "0.0.0.0",
       allowedHosts: true,
       fs: {
-        strict: true,
-        deny: ["**/.*"],
+        strict: false,
+        allow: [".."],
       },
     },
   };

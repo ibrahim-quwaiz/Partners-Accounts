@@ -6,6 +6,9 @@ import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
 
+// استخدام process.cwd() للحصول على المجلد الرئيسي للمشروع
+const projectRoot = process.cwd();
+
 const viteLogger = createLogger();
 
 export async function setupVite(server: Server, app: Express) {
@@ -15,8 +18,11 @@ export async function setupVite(server: Server, app: Express) {
     allowedHosts: true as const,
   };
 
+  // استيراد viteConfig بشكل صحيح (async function)
+  const resolvedViteConfig = typeof viteConfig === 'function' ? await viteConfig() : viteConfig;
+
   const vite = await createViteServer({
-    ...viteConfig,
+    ...resolvedViteConfig,
     configFile: false,
     customLogger: {
       ...viteLogger,
@@ -36,8 +42,7 @@ export async function setupVite(server: Server, app: Express) {
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
+        projectRoot,
         "client",
         "index.html",
       );
