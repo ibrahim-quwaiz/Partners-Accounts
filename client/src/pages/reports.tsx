@@ -52,6 +52,24 @@ export default function ReportsPage() {
     const projectName = activeProject?.name || '';
     const printDate = format(new Date(), "yyyy/MM/dd");
     
+    // حساب الملخص المالي للفترة المحددة
+    const periodTotalRevenues = totalRevenues;
+    const periodTotalExpenses = totalExpenses;
+    const periodNetProfit = netProfit;
+    
+    // تنسيق تواريخ الفترة
+    const periodStartDate = selectedPeriodData?.startDate 
+      ? format(new Date(selectedPeriodData.startDate), "yyyy/MM/dd")
+      : '';
+    const periodEndDate = selectedPeriodData?.endDate 
+      ? format(new Date(selectedPeriodData.endDate), "yyyy/MM/dd")
+      : 'مستمرة';
+    const periodDateRange = periodStartDate && periodEndDate !== 'مستمرة'
+      ? `من ${periodStartDate} إلى ${periodEndDate}`
+      : periodStartDate 
+        ? `من ${periodStartDate}`
+        : '';
+    
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
@@ -104,6 +122,72 @@ export default function ReportsPage() {
             display: flex;
             align-items: center;
             gap: 6px;
+          }
+          
+          .financial-summary {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+          }
+          
+          .financial-summary-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 15px;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #cbd5e1;
+          }
+          
+          .financial-summary-period {
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 20px;
+            font-weight: 600;
+          }
+          
+          .financial-summary-boxes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+          }
+          
+          .financial-box {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          }
+          
+          .financial-box-label {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 8px;
+            font-weight: 600;
+          }
+          
+          .financial-box-value {
+            font-size: 22px;
+            font-weight: 700;
+          }
+          
+          .financial-box.revenue .financial-box-value {
+            color: #16a34a;
+          }
+          
+          .financial-box.expense .financial-box-value {
+            color: #dc2626;
+          }
+          
+          .financial-box.profit .financial-box-value {
+            color: ${periodNetProfit >= 0 ? '#16a34a' : '#dc2626'};
           }
           
           table {
@@ -169,6 +253,9 @@ export default function ReportsPage() {
           @media print {
             body { padding: 20px; }
             .header { margin-bottom: 20px; }
+            .financial-summary {
+              page-break-inside: avoid;
+            }
           }
         </style>
       </head>
@@ -181,6 +268,26 @@ export default function ReportsPage() {
             <span>تاريخ الطباعة: ${printDate}</span>
           </div>
         </div>
+        
+        <div class="financial-summary">
+          <div class="financial-summary-title">ملخص الفترة المالية</div>
+          ${periodDateRange ? `<div class="financial-summary-period">${periodDateRange}</div>` : ''}
+          <div class="financial-summary-boxes">
+            <div class="financial-box revenue">
+              <div class="financial-box-label">إجمالي إيرادات الفترة</div>
+              <div class="financial-box-value">${periodTotalRevenues.toLocaleString()} ر.س</div>
+            </div>
+            <div class="financial-box expense">
+              <div class="financial-box-label">إجمالي مصروفات الفترة</div>
+              <div class="financial-box-value">${periodTotalExpenses.toLocaleString()} ر.س</div>
+            </div>
+            <div class="financial-box profit">
+              <div class="financial-box-label">صافي ربح الفترة</div>
+              <div class="financial-box-value">${periodNetProfit.toLocaleString()} ر.س</div>
+            </div>
+          </div>
+        </div>
+        
         ${ref.current.innerHTML}
         <div class="footer">
           نظام محاسبة الشراكات - تم إنشاء هذا التقرير آلياً
